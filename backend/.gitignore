@@ -1,0 +1,53 @@
+# Node dependencies
+node_modules/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+*.log
+logs/
+
+# Environment files (keep secrets out of repo)
+.env
+.env.*.local
+
+# Build / output
+dist/
+build/
+.out/
+.tmp/
+.cache/
+
+# Test coverage
+coverage/
+
+# TypeScript
+*.tsbuildinfo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.iml
+
+# Runtime files
+pids/
+*.pid
+*.pid.lock
+*.sock
+tmp/
+uploads/
+
+# Certificates / keys
+*.pem
+*.key
+*.crt
+
+# Docker overrides
+docker-compose.override.yml

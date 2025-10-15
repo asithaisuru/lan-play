@@ -1,0 +1,4 @@
+MONGODB_URI=
+PORT=
+GEMINI_API_KEY=
+NODE_ENV=development
