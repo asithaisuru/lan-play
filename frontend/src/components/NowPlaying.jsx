@@ -1,45 +1,235 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+const YOUTUBE_HOST_ID = 'lan-play-youtube-host';
+const YOUTUBE_MOUNT_ID = 'lan-play-youtube-player';
+
+const ensureYouTubeMount = () => {
+  if (typeof document === 'undefined') return null;
+
+  let host = document.getElementById(YOUTUBE_HOST_ID);
+  if (!host) {
+    host = document.createElement('div');
+    host.id = YOUTUBE_HOST_ID;
+    host.setAttribute('aria-hidden', 'true');
+    host.style.cssText = [
+      'position:fixed',
+      'left:-9999px',
+      'top:0',
+      'width:1px',
+      'height:1px',
+      'overflow:hidden',
+      'opacity:0',
+      'pointer-events:none'
+    ].join(';');
+    document.body.appendChild(host);
+  }
+
+  let mount = document.getElementById(YOUTUBE_MOUNT_ID);
+  if (!mount) {
+    mount = document.createElement('div');
+    mount.id = YOUTUBE_MOUNT_ID;
+    host.replaceChildren(mount);
+  }
+
+  return mount;
+};
 
 const NowPlaying = ({ 
   currentSong, 
+  currentSource,
   isPlaying, 
+  syncedCurrentTime = 0,
   isHost, 
+  isAudioDevice,
   playAnnouncement,
   playlist,
   socket
 }) => {
+  const playerContainerRef = useRef(null);
   const playerRef = useRef(null);
+  const playerReadyRef = useRef(false);
   const hasAnnouncedRef = useRef(false);
+  const playerSongIdRef = useRef(null);
+  const playerVideoIdRef = useRef(null);
+  const announcementTimerRef = useRef(null);
+  const latestStateRef = useRef({
+    currentSong,
+    currentSource,
+    isHost,
+    isAudioDevice,
+    isPlaying,
+    playlist,
+    socket
+  });
+  const songSwitchTokenRef = useRef(0);
+  const fadeIntervalsRef = useRef(new Set());
   const [player, setPlayer] = useState(null);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
+  const [isYouTubeReady, setIsYouTubeReady] = useState(Boolean(window.YT?.Player));
+  const [elapsedTime, setElapsedTime] = useState(syncedCurrentTime || 0);
+  const [knownDuration, setKnownDuration] = useState(currentSong?.duration || 0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const roomVolume = Math.max(0, Math.min(100, Number(playlist?.volume ?? 100)));
+
+  const formatTime = (seconds) => {
+    if (!Number.isFinite(seconds) || seconds <= 0) return '0:00';
+    const safeSeconds = Math.floor(seconds);
+    const mins = Math.floor(safeSeconds / 60);
+    const secs = safeSeconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const fadeVolume = useCallback((youtubePlayer, targetVolume, duration = 1200) => {
+    if (!youtubePlayer?.setVolume || !youtubePlayer?.getVolume) {
+      return Promise.resolve();
+    }
+
+    try {
+      const iframe = youtubePlayer.getIframe?.();
+      if (iframe && !iframe.isConnected) {
+        return Promise.resolve();
+      }
+    } catch {
+      return Promise.resolve();
+    }
+
+    let startVolume = 100;
+    try {
+      startVolume = youtubePlayer.getVolume();
+    } catch (error) {
+      console.warn('Player volume read failed:', error);
+      return Promise.resolve();
+    }
+
+    const steps = 12;
+    const stepMs = duration / steps;
+    const volumeStep = (targetVolume - startVolume) / steps;
+    let currentStep = 0;
+
+    return new Promise((resolve) => {
+      const interval = setInterval(() => {
+        try {
+          const activeIframe = youtubePlayer.getIframe?.();
+          if (activeIframe && !activeIframe.isConnected) {
+            clearInterval(interval);
+            fadeIntervalsRef.current.delete(interval);
+            resolve();
+            return;
+          }
+        } catch {
+          clearInterval(interval);
+          fadeIntervalsRef.current.delete(interval);
+          resolve();
+          return;
+        }
+
+        currentStep += 1;
+        try {
+          youtubePlayer.setVolume(Math.max(0, Math.min(100, startVolume + (volumeStep * currentStep))));
+        } catch (error) {
+          clearInterval(interval);
+          fadeIntervalsRef.current.delete(interval);
+          console.warn('Player volume fade stopped:', error);
+          resolve();
+          return;
+        }
+
+        if (currentStep >= steps) {
+          clearInterval(interval);
+          fadeIntervalsRef.current.delete(interval);
+          try {
+            youtubePlayer.setVolume(targetVolume);
+          } catch (error) {
+            console.warn('Player final volume set failed:', error);
+          }
+          resolve();
+        }
+      }, stepMs);
+      fadeIntervalsRef.current.add(interval);
+    });
+  }, []);
+
+  const clearFadeIntervals = useCallback(() => {
+    fadeIntervalsRef.current.forEach((interval) => clearInterval(interval));
+    fadeIntervalsRef.current.clear();
+  }, []);
+
+  const isReadyPlayer = useCallback((youtubePlayer) => (
+    Boolean(
+      youtubePlayer
+      && typeof youtubePlayer.playVideo === 'function'
+      && typeof youtubePlayer.pauseVideo === 'function'
+      && typeof youtubePlayer.loadVideoById === 'function'
+      && typeof youtubePlayer.cueVideoById === 'function'
+    )
+  ), []);
+
+  useEffect(() => {
+    latestStateRef.current = {
+      currentSong,
+      currentSource,
+      isHost,
+      isAudioDevice,
+      isPlaying,
+      playlist,
+      socket
+    };
+  }, [currentSong, currentSource, isAudioDevice, isHost, isPlaying, playlist, socket]);
+
+  useEffect(() => {
+    playerContainerRef.current = ensureYouTubeMount();
+  }, []);
 
   // Load YouTube IFrame API
   useEffect(() => {
-    if (!window.YT) {
+    if (!window.YT?.Player) {
       const tag = document.createElement('script');
       tag.src = 'https://www.youtube.com/iframe_api';
       const firstScriptTag = document.getElementsByTagName('script')[0];
       firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
       
-      window.onYouTubeIframeAPIReady = initializePlayer;
+      window.onYouTubeIframeAPIReady = () => setIsYouTubeReady(true);
     } else {
-      initializePlayer();
+      setIsYouTubeReady(true);
     }
   }, []);
 
-  // Initialize YouTube player when song changes (host only)
-  const initializePlayer = () => {
-    if (!currentSong || !isHost || !window.YT) return;
-    
-    // Clean up existing player
-    if (playerRef.current) {
-      playerRef.current.destroy();
+  const stopHostPlayer = useCallback(() => {
+    const existingPlayer = playerRef.current;
+    if (!existingPlayer) return;
+
+    clearFadeIntervals();
+
+    try {
+      existingPlayer.stopVideo?.();
+    } catch (error) {
+      console.warn('YouTube player stop failed:', error);
     }
 
-    // Create new player
-    playerRef.current = new window.YT.Player('youtube-player', {
-      height: '0',
-      width: '0',
+    playerSongIdRef.current = null;
+    playerVideoIdRef.current = null;
+    playerReadyRef.current = false;
+    hasAnnouncedRef.current = false;
+    clearTimeout(announcementTimerRef.current);
+    setPlayer(null);
+    setIsPlayerReady(false);
+  }, [clearFadeIntervals]);
+
+  // Initialize a single YouTube player and reuse it for all song changes.
+  const initializePlayer = useCallback(() => {
+    const mountNode = playerContainerRef.current || ensureYouTubeMount();
+    if (!currentSong || !isAudioDevice || !window.YT?.Player || !mountNode) return;
+    if (playerRef.current) {
+      if (isReadyPlayer(playerRef.current)) {
+        setPlayer(playerRef.current);
+        setIsPlayerReady(true);
+      }
+      return;
+    }
+
+    playerRef.current = new window.YT.Player(mountNode, {
+      height: '1',
+      width: '1',
       videoId: currentSong.youtubeId,
       playerVars: {
         'autoplay': 0,
@@ -48,26 +238,58 @@ const NowPlaying = ({
         'fs': 0,
         'modestbranding': 1,
         'playsinline': 1
-      },
-      events: {
-        'onReady': (event) => {
-          console.log('YouTube player ready');
+        },
+        events: {
+          'onReady': (event) => {
+          const latest = latestStateRef.current;
+          const activeSong = latest.currentSong;
+          try {
+            event.target.setVolume(0);
+          } catch (error) {
+            console.warn('Player initial volume set failed:', error);
+          }
           setPlayer(event.target);
+          playerRef.current = event.target;
+          playerReadyRef.current = true;
           setIsPlayerReady(true);
-          if (isPlaying) {
-            event.target.playVideo();
+          playerSongIdRef.current = activeSong?._id || null;
+          playerVideoIdRef.current = activeSong?.youtubeId || null;
+          const duration = event.target.getDuration?.() || activeSong?.duration || 0;
+          setKnownDuration(duration);
+          if (latest.isPlaying && typeof event.target.playVideo === 'function') {
+            try {
+              const resumeTime = Number(latest.playlist?.currentTime || 0);
+              if (resumeTime > 0 && typeof event.target.seekTo === 'function') {
+                event.target.seekTo(resumeTime, true);
+                setElapsedTime(resumeTime);
+              }
+              event.target.playVideo();
+            } catch (error) {
+              console.warn('Player initial play failed:', error);
+            }
+          }
+          fadeVolume(event.target, roomVolume);
+          if (latest.socket && duration > 0) {
+            latest.socket.emit('playback-progress', {
+              currentTime: event.target.getCurrentTime?.() || 0,
+              duration
+            });
           }
         },
         'onStateChange': (event) => {
-          console.log('YouTube player state:', event.data);
+          const latest = latestStateRef.current;
+          const activeSong = latest.currentSong;
           
           // Song started playing
           if (event.data === window.YT.PlayerState.PLAYING && !hasAnnouncedRef.current) {
             // Schedule announcement after 5 seconds
-            setTimeout(() => {
-              if (currentSong.message && isPlayerReady) {
+            clearTimeout(announcementTimerRef.current);
+            announcementTimerRef.current = setTimeout(() => {
+              const announcementState = latestStateRef.current;
+              const announcementSong = announcementState.currentSong;
+              if (announcementState.playlist?.announcementEnabled && announcementState.currentSource === 'queue' && announcementSong?.message) {
                 playAnnouncement(
-                  `This song was added by ${currentSong.addedBy}. They say: ${currentSong.message}`,
+                  `This song was added by ${announcementSong.addedBy}. They say: ${announcementSong.message}`,
                   event.target
                 );
                 hasAnnouncedRef.current = true;
@@ -77,12 +299,11 @@ const NowPlaying = ({
           
           // Song ended - play next song
           if (event.data === window.YT.PlayerState.ENDED) {
-            console.log('Song ended, playing next song...');
             hasAnnouncedRef.current = false;
             
             // Automatically play next song
-            if (socket && isHost) {
-              socket.emit('next-song');
+            if (latest.socket && latest.isAudioDevice && activeSong?._id === playerSongIdRef.current) {
+              latest.socket.emit('next-song');
             }
           }
           
@@ -94,11 +315,11 @@ const NowPlaying = ({
         'onError': (error) => {
           console.error('YouTube player error:', error);
           setIsPlayerReady(false);
+          const latest = latestStateRef.current;
           
           // If there's an error with the current song, skip to next
-          if (socket && isHost) {
-            console.log('Skipping to next song due to error');
-            socket.emit('next-song');
+          if (latest.socket && latest.isAudioDevice) {
+            latest.socket.emit('next-song');
           }
         }
       }
@@ -106,20 +327,152 @@ const NowPlaying = ({
 
     hasAnnouncedRef.current = false;
     setIsPlayerReady(false);
-  };
+  }, [currentSong, fadeVolume, isAudioDevice, isReadyPlayer, playAnnouncement, roomVolume]);
 
   // Re-initialize player when song changes
   useEffect(() => {
-    if (isHost && window.YT) {
+    if (isAudioDevice && isYouTubeReady) {
       initializePlayer();
     }
-  }, [currentSong, isHost]);
+  }, [currentSong, isAudioDevice, isYouTubeReady, initializePlayer]);
+
+  useEffect(() => {
+    if (!isAudioDevice) {
+      stopHostPlayer();
+    }
+  }, [isAudioDevice, stopHostPlayer]);
+
+  useEffect(() => {
+    if (isAudioDevice && player && !currentSong) {
+      stopHostPlayer();
+    }
+  }, [currentSong, isAudioDevice, player, stopHostPlayer]);
+
+  useEffect(() => {
+    if (!isAudioDevice || !isPlayerReady || !isReadyPlayer(player) || !currentSong) return;
+    if (playerSongIdRef.current === currentSong._id && playerVideoIdRef.current === currentSong.youtubeId) return;
+
+    const switchToken = songSwitchTokenRef.current + 1;
+    songSwitchTokenRef.current = switchToken;
+    hasAnnouncedRef.current = false;
+    clearTimeout(announcementTimerRef.current);
+    playerSongIdRef.current = currentSong._id;
+    playerVideoIdRef.current = currentSong.youtubeId;
+    setKnownDuration(currentSong.duration || 0);
+    const resumeTime = Number(syncedCurrentTime || 0);
+    setElapsedTime(resumeTime);
+
+    const switchSong = async () => {
+      try {
+        await fadeVolume(player, 0, 500);
+        if (songSwitchTokenRef.current !== switchToken) return;
+
+        if (isPlaying) {
+          player.loadVideoById({ videoId: currentSong.youtubeId, startSeconds: resumeTime });
+        } else {
+          player.cueVideoById({ videoId: currentSong.youtubeId, startSeconds: resumeTime });
+        }
+
+        if (isPlaying) {
+          await fadeVolume(player, roomVolume, 900);
+        }
+      } catch (error) {
+        console.error('Player song switch error:', error);
+      }
+    };
+
+    switchSong();
+  }, [currentSong, fadeVolume, isAudioDevice, isPlayerReady, isPlaying, isReadyPlayer, player, roomVolume, syncedCurrentTime]);
+
+  useEffect(() => {
+    if (!isAudioDevice || !isPlayerReady || !isReadyPlayer(player)) return;
+
+    try {
+      player.setVolume?.(roomVolume);
+    } catch (error) {
+      console.warn('Player volume update failed:', error);
+    }
+  }, [isAudioDevice, isPlayerReady, isReadyPlayer, player, roomVolume]);
+
+  useEffect(() => {
+    setElapsedTime(syncedCurrentTime || 0);
+    setKnownDuration(currentSong?.duration || 0);
+  }, [currentSong?._id, currentSong?.duration, syncedCurrentTime]);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setIsFullscreen(false);
+      }
+    };
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        setIsFullscreen(false);
+      }
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, [isFullscreen]);
+
+  useEffect(() => {
+    if (!isAudioDevice || !isPlayerReady || !isReadyPlayer(player) || !currentSong) return;
+
+    let tick = 0;
+    const interval = setInterval(() => {
+      const current = player.getCurrentTime?.() || 0;
+      const duration = player.getDuration?.() || currentSong.duration || 0;
+      setElapsedTime(current);
+      setKnownDuration(duration);
+
+      tick += 1;
+      if (socket && tick % 5 === 0) {
+        socket.emit('playback-progress', {
+          currentTime: current,
+          duration
+        });
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [currentSong, isAudioDevice, isPlayerReady, isReadyPlayer, player, socket]);
+
+  useEffect(() => {
+    if (isAudioDevice || !isPlaying || !currentSong) return;
+
+    const interval = setInterval(() => {
+      setElapsedTime((time) => {
+        const nextTime = time + 1;
+        if (knownDuration > 0) {
+          return Math.min(nextTime, knownDuration);
+        }
+        return nextTime;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [currentSong, isAudioDevice, isPlaying, knownDuration]);
 
   // Handle play/pause controls (host only)
   useEffect(() => {
-    if (isPlayerReady && player && isHost) {
+    if (isPlayerReady && isReadyPlayer(player) && isAudioDevice) {
       try {
         if (isPlaying) {
+          const targetTime = Number(syncedCurrentTime || 0);
+          const currentPlayerTime = player.getCurrentTime?.() || 0;
+          if (targetTime > 0 && Math.abs(currentPlayerTime - targetTime) > 2 && typeof player.seekTo === 'function') {
+            player.seekTo(targetTime, true);
+          }
           player.playVideo();
         } else {
           player.pauseVideo();
@@ -128,131 +481,375 @@ const NowPlaying = ({
         console.error('Player control error:', error);
       }
     }
-  }, [isPlaying, isPlayerReady, player, isHost]);
+  }, [isPlaying, isPlayerReady, player, isAudioDevice, isReadyPlayer, syncedCurrentTime]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (playerRef.current) {
-        playerRef.current.destroy();
-      }
+      clearTimeout(announcementTimerRef.current);
+      clearFadeIntervals();
+      stopHostPlayer();
     };
-  }, []);
+  }, [clearFadeIntervals, stopHostPlayer]);
 
   if (!currentSong) {
     return (
       <div className="card">
-        <div className="text-center py-8 text-gray-500">
-          <div className="text-4xl mb-3 opacity-50">🎵</div>
-          <h3 className="font-semibold text-lg mb-2">No Song Playing</h3>
-          <p>Add songs to the playlist to get started</p>
+        <div className="flex min-h-56 flex-col items-center justify-center rounded-lg border border-dashed border-white/15 bg-slate-950/50 px-6 py-10 text-center">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-lg bg-cyan-400/10 text-lg font-black text-cyan-200 shadow-sm">
+            LP
+          </div>
+          <h3 className="text-lg font-bold text-white">Nothing playing yet</h3>
+          <p className="mt-1 max-w-sm text-sm text-slate-400">Add a request or start the default playlist when you are ready.</p>
         </div>
       </div>
     );
   }
 
+  const duration = knownDuration || currentSong.duration || 0;
+  const progressPercent = duration > 0 ? Math.min(100, Math.max(0, (elapsedTime / duration) * 100)) : 0;
+  const hasPlayableTracks = Boolean(currentSong || playlist?.songs?.length || playlist?.defaultSongs?.length);
+  const pendingQueue = playlist?.songs?.filter((song) => !song.playedAt && song._id !== currentSong?._id) || [];
+  const defaultSongs = playlist?.defaultSongs || [];
+  const currentDefaultIndex = defaultSongs.findIndex((song) => song._id === currentSong?._id);
+  const nextDefaultSong = defaultSongs.length
+    ? defaultSongs[(currentDefaultIndex >= 0 ? currentDefaultIndex + 1 : playlist?.defaultIndex || 0) % defaultSongs.length]
+    : null;
+  const nextSong = currentSource === 'queue'
+    ? (pendingQueue[0] || nextDefaultSong)
+    : (pendingQueue[0] || nextDefaultSong);
+
+  const handlePlayPause = () => {
+    if (!socket || !isHost) return;
+
+    if (isPlaying) {
+      socket.emit('pause', { currentTime: elapsedTime });
+      return;
+    }
+
+    socket.emit('play', {
+      currentTime: elapsedTime,
+      songId: currentSong?._id,
+      source: currentSource
+    });
+  };
+
+  const handleNext = () => {
+    if (!socket || !isHost) return;
+    socket.emit('next-song');
+  };
+
+  const handleVolumeChange = (volume) => {
+    if (!socket || !isHost) return;
+    socket.emit('set-volume', { volume });
+  };
+
+  const adjustVolume = (delta) => {
+    handleVolumeChange(Math.max(0, Math.min(100, roomVolume + delta)));
+  };
+
+  const openFullscreen = async () => {
+    setIsFullscreen(true);
+
+    try {
+      await document.documentElement.requestFullscreen?.();
+    } catch {
+      // The overlay still provides the full-screen player experience if the browser denies fullscreen.
+    }
+  };
+
+  const closeFullscreen = async () => {
+    setIsFullscreen(false);
+
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen?.();
+      }
+    } catch {
+      // Ignore browser fullscreen exit failures.
+    }
+  };
+
+  const renderHostControls = (variant = 'card') => {
+    if (!isHost) return null;
+
+    const isFullscreenControls = variant === 'fullscreen';
+
+    return (
+      <div className={isFullscreenControls ? "mt-0 min-w-0 max-w-full sm:mt-8" : "mt-5"}>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={handlePlayPause}
+            disabled={!hasPlayableTracks}
+            className={`${isFullscreenControls ? 'h-14 w-14 text-xl sm:h-16 sm:w-16 sm:text-2xl' : 'h-12 w-12 text-lg'} inline-flex items-center justify-center rounded-full bg-cyan-400 font-black text-slate-950 shadow-lg shadow-cyan-950/30 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40`}
+            title={isPlaying ? 'Pause' : 'Play'}
+            aria-label={isPlaying ? 'Pause' : 'Play'}
+          >
+            <span aria-hidden="true">
+              {isPlaying ? '⏸' : '▶'}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={handleNext}
+            disabled={!playlist?.songs?.length && !playlist?.defaultSongs?.length}
+            className={`${isFullscreenControls ? 'h-14 w-14 text-xl sm:h-16 sm:w-16 sm:text-2xl' : 'h-12 w-12 text-lg'} inline-flex items-center justify-center rounded-full border border-white/10 bg-white/10 font-bold text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40`}
+            title="Next"
+            aria-label="Next"
+          >
+            <span aria-hidden="true">⏭</span>
+          </button>
+        </div>
+
+        <div className={`${isFullscreenControls ? 'mt-4 max-w-full px-2 py-2.5 sm:mt-5 sm:max-w-xl sm:px-4 sm:py-3' : 'mt-4 max-w-sm px-3 py-2'} mx-auto flex w-full min-w-0 items-center justify-center gap-2 rounded-lg border border-white/10 bg-slate-950/45 sm:gap-3`}>
+          <button
+            type="button"
+            onClick={() => adjustVolume(-10)}
+            disabled={roomVolume <= 0}
+            className={`${isFullscreenControls ? 'h-9 w-9 text-base sm:h-11 sm:w-11' : 'h-9 w-9 text-sm'} inline-flex flex-shrink-0 items-center justify-center rounded-full bg-white/10 font-bold text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40`}
+            title="Volume down"
+            aria-label="Volume down"
+          >
+            <span aria-hidden="true">−</span>
+          </button>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            value={roomVolume}
+            onChange={(event) => handleVolumeChange(Number(event.target.value))}
+            className="min-w-0 flex-1 accent-cyan-400"
+            aria-label="Audio volume"
+          />
+          <button
+            type="button"
+            onClick={() => adjustVolume(10)}
+            disabled={roomVolume >= 100}
+            className={`${isFullscreenControls ? 'h-9 w-9 text-base sm:h-11 sm:w-11' : 'h-9 w-9 text-sm'} inline-flex flex-shrink-0 items-center justify-center rounded-full bg-white/10 font-bold text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40`}
+            title="Volume up"
+            aria-label="Volume up"
+          >
+            <span aria-hidden="true">+</span>
+          </button>
+          <span className="w-9 flex-shrink-0 text-right font-mono text-[11px] text-slate-300 sm:w-11 sm:text-xs">
+            {roomVolume}%
+          </span>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="card">
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-2xl">🔊</span>
-        <h2 className="text-xl font-semibold text-gray-900">Now Playing</h2>
-        {!isHost && (
-          <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full ml-2">
-            Listening Mode
-          </span>
-        )}
-        {isHost && (
-          <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full ml-2">
-            Audio Host {isPlayerReady ? '✅' : '⏳'}
-          </span>
-        )}
-      </div>
-
-      <div className="flex gap-4">
-        <img 
-          src={currentSong.thumbnail} 
-          alt={currentSong.title}
-          className="w-24 h-18 rounded-lg object-cover flex-shrink-0"
-        />
-        
-        <div className="flex-1 min-w-0">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2 truncate">
-            {currentSong.title}
-          </h3>
-          
-          <div className="flex items-center gap-2 text-gray-600 mb-3">
-            <span>👤</span>
-            <span className="font-medium">Added by: {currentSong.addedBy}</span>
+    <>
+      <div className="card overflow-hidden p-0">
+        <div className="bg-black/45 p-5 text-white">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-cyan-300">Now playing</p>
+              <h2 className="mt-1 text-xl font-black">Room audio</h2>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={openFullscreen}
+                className="badge border-white/10 bg-white/5 text-slate-200 transition hover:border-cyan-300/40 hover:bg-white/10"
+                title="Full screen"
+                aria-label="Open full screen player"
+              >
+                <span aria-hidden="true">⛶</span>
+              </button>
+              <span className={isAudioDevice ? "badge border-cyan-300/30 bg-cyan-400/10 text-cyan-200" : "badge border-violet-300/30 bg-violet-400/10 text-violet-200"}>
+                {isAudioDevice ? `Audio device ${isPlayerReady ? "ready" : "loading"}` : "Listening"}
+              </span>
+              {isHost && (
+                <span className="badge border-emerald-300/30 bg-emerald-400/10 text-emerald-200">
+                  Host
+                </span>
+              )}
+              {currentSource && (
+                <span className="badge border-white/10 bg-white/10 text-slate-200">
+                  {currentSource === 'default' ? 'Default' : 'Request'}
+                </span>
+              )}
+            </div>
           </div>
-          
-          {currentSong.message && (
-            <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg p-3">
-              <div className="flex items-center gap-2 text-blue-800 mb-1">
-                <span>💬</span>
-                <span className="font-semibold">Message:</span>
+
+          <div className="grid gap-5 md:grid-cols-[180px_minmax(0,1fr)]">
+            <img 
+              src={currentSong.thumbnail} 
+              alt={currentSong.title}
+              className="aspect-video w-full rounded-lg object-cover shadow-lg shadow-black/20"
+            />
+            
+            <div className="min-w-0 self-center">
+              <h3 className="line-clamp-2 text-2xl font-black leading-tight text-white md:text-3xl">
+                {currentSong.title}
+              </h3>
+              
+              <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-slate-300">
+                <span className="rounded-full bg-white/10 px-3 py-1">
+                  {currentSource === 'default' ? 'Default playlist' : `Added by ${currentSong.addedBy}`}
+                </span>
+                <span className={isPlaying ? "rounded-full bg-cyan-400/20 px-3 py-1 text-cyan-200" : "rounded-full bg-amber-400/20 px-3 py-1 text-amber-200"}>
+                  {isPlaying ? "Playing" : "Paused"}
+                </span>
               </div>
-              <p className="text-blue-700">"{currentSong.message}"</p>
+
+              <div className="mt-6">
+                <div className="mb-2 flex items-center justify-between font-mono text-xs text-slate-400">
+                  <span>{formatTime(elapsedTime)}</span>
+                  <span>{duration > 0 ? formatTime(duration) : '--:--'}</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                  <div
+                    className="h-full rounded-full bg-cyan-400 transition-all duration-500"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+              </div>
+
+              {isHost && (
+                renderHostControls()
+              )}
             </div>
-          )}
+          </div>
         </div>
+
+        {currentSource === 'queue' && currentSong.message && (
+          <div className="border-b border-white/10 bg-slate-950/40 p-5">
+            <p className="eyebrow">Message</p>
+            <p className="mt-2 text-sm leading-6 text-slate-300">"{currentSong.message}"</p>
+          </div>
+        )}
+
+        {/* Status indicators */}
+        {!isAudioDevice && isPlaying && (
+          <div className="m-5 rounded-lg border border-cyan-300/20 bg-cyan-400/10 p-4">
+            <p className="font-semibold text-cyan-100">Music is playing on the assigned audio device</p>
+            <p className="mt-1 text-sm text-cyan-200/80">You are synced with the room playlist.</p>
+          </div>
+        )}
+
+        {!isAudioDevice && !isPlaying && (
+          <div className="m-5 rounded-lg border border-amber-300/20 bg-amber-400/10 p-4">
+            <p className="font-semibold text-amber-100">Playback paused</p>
+            <p className="mt-1 text-sm text-amber-200/80">Waiting for the host to resume.</p>
+          </div>
+        )}
+
+        {isAudioDevice && !isPlayerReady && (
+          <div className="m-5 rounded-lg border border-amber-300/20 bg-amber-400/10 p-4">
+            <p className="font-semibold text-amber-100">Initializing audio player</p>
+            <p className="mt-1 text-sm text-amber-200/80">The host player is preparing the next track.</p>
+          </div>
+        )}
+
+        {isAudioDevice && isPlayerReady && (
+          <div className="m-5 rounded-lg border border-white/10 bg-white/5 p-4">
+            <p className="font-semibold text-white">Audio player ready</p>
+            <p className="mt-1 text-sm text-slate-400">This device is playing room audio.</p>
+          </div>
+        )}
       </div>
 
-      {/* Hidden YouTube player - only for host */}
-      {isHost && (
-        <div className="hidden">
-          <div id="youtube-player"></div>
-        </div>
-      )}
-
-      {/* Status indicators */}
-      {!isHost && isPlaying && (
-        <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-3">
-          <div className="flex items-center gap-2 text-green-800">
-            <span className="text-xl">🎵</span>
-            <div>
-              <p className="font-semibold">Music is playing on host device</p>
-              <p className="text-sm text-green-700">You're in sync with the playlist</p>
+      {isFullscreen && (
+        <div className="fixed inset-0 z-50 max-w-[100vw] overflow-hidden bg-slate-950 text-white">
+          <div className="flex h-[100dvh] min-h-0 max-w-full flex-col overflow-x-hidden">
+            <div className="flex max-w-full flex-shrink-0 items-center justify-between gap-3 overflow-hidden border-b border-white/10 bg-slate-950/95 px-4 py-2.5 backdrop-blur sm:gap-4 sm:px-5 sm:py-4">
+              <div className="min-w-0">
+                <p className="eyebrow">Now playing</p>
+                <p className="mt-0.5 truncate text-xs text-slate-400 sm:mt-1 sm:text-sm">
+                  {currentSource === 'default' ? 'Default playlist' : 'User request'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeFullscreen}
+                className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xl text-white transition hover:bg-white/10"
+                title="Exit full screen"
+                aria-label="Exit full screen player"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
             </div>
+
+            <div className="grid min-h-0 max-w-full flex-1 grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-x-hidden px-4 py-3 sm:block sm:overflow-y-auto sm:px-6 sm:py-6 lg:grid lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:grid-rows-none lg:items-center lg:gap-8 lg:overflow-hidden lg:px-10">
+              <div className="mx-auto w-full max-w-full sm:max-w-2xl lg:max-w-3xl">
+                <img
+                  src={currentSong.thumbnail}
+                  alt={currentSong.title}
+                  className="mx-auto aspect-video max-h-[22dvh] w-full max-w-[42dvh] rounded-lg object-cover shadow-2xl shadow-black/40 sm:max-h-none sm:max-w-none"
+                />
+              </div>
+
+              <div className="mx-auto flex min-h-0 w-full max-w-full flex-col justify-center overflow-hidden text-center sm:max-w-4xl lg:text-left">
+                <div className="flex flex-wrap items-center justify-center gap-1.5 lg:justify-start">
+                  <span className={isPlaying ? "rounded-full bg-cyan-400/20 px-3 py-1 text-xs font-semibold text-cyan-200 sm:text-sm" : "rounded-full bg-amber-400/20 px-3 py-1 text-xs font-semibold text-amber-200 sm:text-sm"}>
+                    {isPlaying ? "Playing" : "Paused"}
+                  </span>
+                  <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-slate-200 sm:text-sm">
+                    {isAudioDevice ? "This device" : "Room sync"}
+                  </span>
+                </div>
+
+                <h2 className="mx-auto mt-2 line-clamp-2 max-w-full break-words text-xl font-black leading-tight text-white sm:mt-5 sm:max-w-3xl sm:text-4xl md:text-5xl lg:mx-0 lg:text-6xl">
+                  {currentSong.title}
+                </h2>
+
+                <p className="mt-1 truncate text-xs text-slate-300 sm:mt-4 sm:text-base md:text-lg">
+                  {currentSource === 'default' ? 'Default playlist' : `Added by ${currentSong.addedBy}`}
+                </p>
+
+                <div className="mx-auto mt-3 w-full max-w-full sm:mt-8 sm:max-w-2xl lg:mx-0">
+                  <div className="mb-2 flex items-center justify-between font-mono text-xs text-slate-300 sm:mb-3 sm:text-sm">
+                    <span>{formatTime(elapsedTime)}</span>
+                    <span>{duration > 0 ? formatTime(duration) : '--:--'}</span>
+                  </div>
+                  <div className="h-2.5 overflow-hidden rounded-full bg-white/10 sm:h-3">
+                    <div
+                      className="h-full rounded-full bg-cyan-400 transition-all duration-500"
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+                  <p className="mt-2 text-xs text-slate-400 sm:mt-3 sm:text-sm">
+                    Played {formatTime(elapsedTime)} of {duration > 0 ? formatTime(duration) : 'unknown length'}
+                  </p>
+                </div>
+
+                {nextSong && (
+                  <div className="mx-auto mt-3 flex w-full max-w-full min-w-0 items-center gap-2 rounded-lg border border-white/10 bg-white/5 p-2 text-left sm:mt-8 sm:max-w-2xl sm:gap-4 sm:p-3 lg:mx-0">
+                    <img
+                      src={nextSong.thumbnail}
+                      alt={nextSong.title}
+                      className="h-10 w-16 flex-shrink-0 rounded object-cover sm:h-16 sm:w-24"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold uppercase tracking-wide text-cyan-300">Next song</p>
+                      <p className="truncate text-sm font-semibold text-white sm:text-base">{nextSong.title}</p>
+                      <p className="truncate text-xs text-slate-400 sm:text-sm">{nextSong.source === 'default' ? 'Default playlist' : `Added by ${nextSong.addedBy}`}</p>
+                    </div>
+                  </div>
+                )}
+
+                {isHost && (
+                  <div className="hidden sm:block">
+                    {renderHostControls('fullscreen')}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {isHost && (
+              <div className="max-w-full flex-shrink-0 overflow-hidden border-t border-white/10 bg-slate-950/95 px-3 py-2.5 shadow-2xl shadow-black/50 backdrop-blur sm:hidden">
+                {renderHostControls('fullscreen')}
+              </div>
+            )}
           </div>
         </div>
       )}
-
-      {!isHost && !isPlaying && (
-        <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-          <div className="flex items-center gap-2 text-yellow-800">
-            <span className="text-xl">⏸️</span>
-            <div>
-              <p className="font-semibold">Playback paused</p>
-              <p className="text-sm text-yellow-700">Waiting for host to resume</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isHost && !isPlayerReady && (
-        <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-          <div className="flex items-center gap-2 text-yellow-800">
-            <span className="text-xl">⏳</span>
-            <div>
-              <p className="font-semibold">Initializing audio player...</p>
-              <p className="text-sm text-yellow-700">Please wait a moment</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isHost && isPlayerReady && (
-        <div className="mt-4 bg-purple-50 border border-purple-200 rounded-lg p-3">
-          <div className="flex items-center gap-2 text-purple-800">
-            <span className="text-xl">🔊</span>
-            <div>
-              <p className="font-semibold">Audio player ready</p>
-              <p className="text-sm text-purple-700">All users are listening to your audio stream</p>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    </>
   );
 };
 

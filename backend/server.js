@@ -1,5 +1,4 @@
 import express from 'express';
-import mongoose from 'mongoose';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
@@ -9,6 +8,50 @@ import { networkInterfaces } from 'os'; // Import from 'os' directly
 import { initializePlaylistSocket } from './sockets/playlistSocket.js';
 
 dotenv.config();
+
+const VIRTUAL_INTERFACE_PATTERN = /(virtual|vmware|vbox|virtualbox|hyper-v|vethernet|docker|wsl|loopback|teredo|tap|tunnel|vpn|npcap)/i;
+const PREFERRED_INTERFACE_PATTERN = /(wi-?fi|wireless|wlan|ethernet|local area connection)/i;
+const FRONTEND_PORT = process.env.FRONTEND_PORT || 5173;
+
+function getNetworkCandidates() {
+  const interfaces = networkInterfaces();
+  const candidates = [];
+
+  for (const name of Object.keys(interfaces)) {
+    for (const net of interfaces[name]) {
+      if (net.family !== 'IPv4' || net.internal) continue;
+
+      const isVirtual = VIRTUAL_INTERFACE_PATTERN.test(name);
+      const isPreferred = PREFERRED_INTERFACE_PATTERN.test(name);
+
+      candidates.push({
+        name,
+        address: net.address,
+        netmask: net.netmask,
+        mac: net.mac,
+        cidr: net.cidr,
+        isVirtual,
+        isPreferred,
+        score: (isPreferred ? 100 : 0) - (isVirtual ? 1000 : 0)
+      });
+    }
+  }
+
+  return candidates.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+}
+
+function getPrimaryNetworkInfo() {
+  const candidates = getNetworkCandidates();
+  const primary = candidates.find((candidate) => !candidate.isVirtual) || candidates[0] || null;
+
+  return {
+    primary,
+    candidates,
+    networkIPs: candidates
+      .filter((candidate) => !candidate.isVirtual)
+      .map((candidate) => candidate.address)
+  };
+}
 
 const app = express();
 const server = createServer(app);
@@ -30,48 +73,28 @@ app.get('/api/health', (req, res) => {
 
 // Network info endpoint
 app.get('/api/network-info', (req, res) => {
-  const interfaces = networkInterfaces();
-  const networkIPs = [];
-  
-  for (const name of Object.keys(interfaces)) {
-    for (const net of interfaces[name]) {
-      // Skip internal and non-IPv4 addresses
-      if (net.family === 'IPv4' && !net.internal) {
-        networkIPs.push(net.address);
-      }
-    }
-  }
+  const { primary, candidates, networkIPs } = getPrimaryNetworkInfo();
   
   res.json({
     networkIPs,
+    primaryIP: primary?.address || null,
+    primaryInterface: primary?.name || null,
+    interfaces: candidates,
     serverIP: req.socket.localAddress,
     clientIP: req.ip,
-    yourNetworkURL: networkIPs.length > 0 ? `http://${networkIPs[0]}:3000` : null
+    yourNetworkURL: primary ? `http://${primary.address}:${FRONTEND_PORT}` : null
   });
 });
 
 // Initialize sockets
 initializePlaylistSocket(io);
 
-// Database connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/lan-play')
-  .then(() => console.log('Connected to MongoDB'))
-  .catch(err => console.error('MongoDB connection error:', err));
-
 const PORT = process.env.PORT || 5000;
 const HOST = '0.0.0.0';
 
 // Get local IP address
 function getLocalIP() {
-  const interfaces = networkInterfaces();
-  for (const name of Object.keys(interfaces)) {
-    for (const net of interfaces[name]) {
-      if (net.family === 'IPv4' && !net.internal) {
-        return net.address;
-      }
-    }
-  }
-  return 'localhost';
+  return getPrimaryNetworkInfo().primary?.address || 'localhost';
 }
 
 const localIP = getLocalIP();

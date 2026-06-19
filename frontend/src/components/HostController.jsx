@@ -1,40 +1,71 @@
+import { useState } from 'react';
+
 const HostController = ({ 
   socket, 
   isHost, 
-  currentSong, 
-  isPlaying, 
   users,
-  playlist 
+  playlist,
+  clientId,
+  isAudioDevice
 }) => {
-  const handlePlay = () => {
-    socket.emit('play', { 
-      currentTime: 0,
-      songId: currentSong?._id 
-    });
+  const [defaultUrl, setDefaultUrl] = useState('');
+  const [isAddingDefault, setIsAddingDefault] = useState(false);
+
+  const handleAnnouncementToggle = (event) => {
+    socket.emit('set-announcement-enabled', { enabled: event.target.checked });
   };
 
-  const handlePause = () => {
-    socket.emit('pause', { currentTime: 0 });
+  const handleAddDefaultSong = (event) => {
+    event.preventDefault();
+    if (!defaultUrl.trim()) return;
+
+    setIsAddingDefault(true);
+    socket.emit('add-default-song', { youtubeUrl: defaultUrl.trim() });
+    setDefaultUrl('');
+    setTimeout(() => setIsAddingDefault(false), 800);
   };
 
-  const handleNext = () => {
-    socket.emit('next-song');
+  const handleRemoveDefaultSong = (songId) => {
+    socket.emit('remove-default-song', { songId });
+  };
+
+  const handleMoveDefaultSong = (songId, direction) => {
+    const songs = [...(playlist?.defaultSongs || [])];
+    const currentIndex = songs.findIndex((song) => song._id === songId);
+    const nextIndex = currentIndex + direction;
+
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= songs.length) return;
+
+    const [song] = songs.splice(currentIndex, 1);
+    songs.splice(nextIndex, 0, song);
+    socket.emit('reorder-default-songs', { songIds: songs.map((item) => item._id) });
+  };
+
+  const handleClearDefaultPlaylist = () => {
+    socket.emit('clear-default-playlist');
+  };
+
+  const handleTransferHost = (targetClientId) => {
+    if (!targetClientId || targetClientId === clientId) return;
+    socket.emit('transfer-host', { targetClientId });
+  };
+
+  const handleAssignAudioDevice = (targetClientId) => {
+    if (!targetClientId || targetClientId === playlist?.audioClientId) return;
+    socket.emit('set-audio-device', { targetClientId });
   };
 
   if (!isHost) {
     return (
       <div className="card">
-        <div className="text-center py-6">
-          <div className="text-4xl mb-4">👥</div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Listener Mode</h3>
-          <p className="text-gray-600 mb-4">
-            Only the host can control playback. Your device is synced to the host's music.
+        <div className="rounded-lg border border-violet-300/20 bg-violet-400/10 p-5">
+          <p className="eyebrow">Listener mode</p>
+          <h3 className="mt-1 text-lg font-bold text-white">Host controls are locked</h3>
+          <p className="mt-2 text-sm text-slate-400">
+            The host controls the room. Audio plays from the assigned playback device.
           </p>
-          <div className="bg-gray-50 rounded-lg p-3 inline-block">
-            <span className="font-semibold">Connected Users:</span> 
-            <span className="ml-2 bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-sm">
-              {users.length}
-            </span>
+          <div className="mt-4 inline-flex rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-slate-200">
+            {isAudioDevice ? 'This device plays audio' : `${users.length} connected`}
           </div>
         </div>
       </div>
@@ -43,65 +74,160 @@ const HostController = ({
 
   return (
     <div className="card">
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-2xl">🎛️</span>
-        <h2 className="text-xl font-semibold text-gray-900">Host Controls</h2>
-      </div>
-
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-        <div className="flex items-center gap-2 text-green-800 mb-1">
-          <span className="text-xl">👑</span>
-          <p className="font-semibold">You are the Host</p>
+      <div className="card-title mb-5">
+        <div>
+          <p className="eyebrow">Admin</p>
+          <h2 className="mt-1 text-xl font-bold text-white">Host controls</h2>
         </div>
-        <p className="text-sm text-green-700">
-          You control the music for everyone. Audio plays from your device only.
-        </p>
+        <span className="badge badge-green">You are host</span>
       </div>
 
-      <div className="flex gap-3 mb-4">
-        {isPlaying ? (
-          <button 
-            onClick={handlePause} 
-            className="btn btn-secondary flex-1"
+      <div className="panel mb-4">
+        <label className="flex items-center justify-between gap-4">
+          <div>
+            <p className="font-semibold text-white">Spoken messages</p>
+            <p className="text-sm text-slate-400">Read user song messages aloud on the assigned audio device.</p>
+          </div>
+          <input
+            type="checkbox"
+            checked={Boolean(playlist?.announcementEnabled)}
+            onChange={handleAnnouncementToggle}
+            className="h-5 w-5 accent-cyan-400"
+          />
+        </label>
+      </div>
+
+      <div className="panel mb-4">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div>
+            <p className="font-semibold text-white">Default playlist</p>
+            <p className="text-sm text-slate-400">Loops when there are no pending user songs.</p>
+          </div>
+          <span className="badge badge-slate">
+            {playlist?.defaultSongs?.length || 0}
+          </span>
+        </div>
+
+        <form onSubmit={handleAddDefaultSong} className="flex flex-col sm:flex-row gap-2 mb-3">
+          <input
+            type="url"
+            value={defaultUrl}
+            onChange={(event) => setDefaultUrl(event.target.value)}
+            placeholder="https://www.youtube.com/watch?v=..."
+            className="input flex-1"
+          />
+          <button
+            type="submit"
+            className="btn btn-primary justify-center sm:w-auto"
+            disabled={isAddingDefault || !defaultUrl.trim()}
           >
-            ⏸️ Pause
+            Add
           </button>
+        </form>
+
+        {playlist?.defaultSongs?.length ? (
+          <div className="space-y-2">
+            <div className="max-h-56 overflow-y-auto rounded-lg border border-white/10 bg-slate-950/60">
+              {playlist.defaultSongs.map((song, index) => (
+                <div key={song._id} className="flex items-center gap-3 border-b border-white/10 p-3 last:border-b-0">
+                  <img
+                    src={song.thumbnail}
+                    alt={song.title}
+                    className="h-10 w-14 flex-shrink-0 rounded object-cover"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-white">{song.title}</p>
+                    {playlist.currentPlaying === song._id && playlist.currentSource === 'default' && (
+                      <p className="text-xs text-cyan-300">Playing as default</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleMoveDefaultSong(song._id, -1)}
+                      disabled={index === 0}
+                      className="rounded bg-white/10 px-2 py-1 text-slate-200 disabled:opacity-40"
+                      title="Move up"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMoveDefaultSong(song._id, 1)}
+                      disabled={index === playlist.defaultSongs.length - 1}
+                      className="rounded bg-white/10 px-2 py-1 text-slate-200 disabled:opacity-40"
+                      title="Move down"
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveDefaultSong(song._id)}
+                      className="rounded bg-rose-500/10 px-2 py-1 text-rose-200"
+                      title="Remove"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={handleClearDefaultPlaylist}
+              className="text-sm font-semibold text-rose-300 hover:text-rose-200"
+            >
+              Clear default playlist
+            </button>
+          </div>
         ) : (
-          <button 
-            onClick={handlePlay} 
-            className="btn btn-primary flex-1"
-            disabled={!currentSong}
-          >
-            ▶️ Play
-          </button>
+          <p className="text-sm text-slate-400">No default songs yet.</p>
         )}
-        
-        <button 
-          onClick={handleNext} 
-          className="btn btn-secondary flex-1"
-          disabled={!playlist?.songs?.length}
-        >
-          ⏭️ Next
-        </button>
       </div>
 
-      <div className="bg-gray-50 rounded-lg p-4">
-        <p className="font-semibold text-gray-900 mb-3">
-          👥 Connected Users: <span className="text-purple-600">{users.length}</span>
-        </p>
-        <div className="flex flex-wrap gap-2">
+      <div className="panel">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="font-semibold text-white">Connected users</p>
+          <span className="badge badge-slate">{users.length}</span>
+        </div>
+        <div className="grid gap-2">
           {users.map(user => (
-            <span 
+            <div
               key={user.socketId}
-              className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
+              className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm ${
                 user.isHost 
-                  ? 'bg-purple-100 text-purple-800 border border-purple-200' 
-                  : 'bg-gray-200 text-gray-700'
+                  ? 'border-cyan-300/30 bg-cyan-400/10 text-cyan-100' 
+                  : 'border-white/10 bg-slate-950/60 text-slate-300'
               }`}
             >
-              {user.username}
-              {user.isHost && '👑'}
-            </span>
+              <span className="flex min-w-0 items-center gap-2 truncate font-semibold">
+                <span className="truncate">{user.username}</span>
+                {user.isHost && <span className="rounded-full bg-cyan-400/20 px-2 py-0.5 text-xs font-bold uppercase text-cyan-100">Host</span>}
+                {user.isAudioDevice && <span className="rounded-full bg-emerald-400/20 px-2 py-0.5 text-xs font-bold uppercase text-emerald-100">Audio</span>}
+              </span>
+              <div className="flex flex-shrink-0 items-center gap-2">
+                {user.clientId && !user.isAudioDevice && (
+                  <button
+                    type="button"
+                    onClick={() => handleAssignAudioDevice(user.clientId)}
+                    className="rounded-md bg-emerald-400 px-2.5 py-1 text-xs font-semibold text-slate-950 hover:bg-emerald-300"
+                    title={`Play audio from ${user.username}'s device`}
+                  >
+                    Use audio
+                  </button>
+                )}
+                {!user.isHost && user.clientId && (
+                  <button
+                    type="button"
+                    onClick={() => handleTransferHost(user.clientId)}
+                    className="rounded-md bg-cyan-400 px-2.5 py-1 text-xs font-semibold text-slate-950 hover:bg-cyan-300"
+                    title={`Transfer host to ${user.username}`}
+                  >
+                    Make host
+                  </button>
+                )}
+              </div>
+            </div>
           ))}
         </div>
       </div>

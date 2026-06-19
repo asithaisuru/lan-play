@@ -1,60 +1,156 @@
-import { useState, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-export const usePlaylist = (socket) => {
+const findCurrentSong = (playlist) => {
+  if (!playlist) return null;
+  if (playlist.currentSong) return playlist.currentSong;
+
+  const allSongs = [
+    ...(playlist.songs || []),
+    ...(playlist.defaultSongs || [])
+  ];
+
+  return allSongs.find((song) => song._id === playlist.currentPlaying) || null;
+};
+
+export const usePlaylist = (socket, clientId) => {
   const [playlist, setPlaylist] = useState(null);
   const [currentSong, setCurrentSong] = useState(null);
   const [isHost, setIsHost] = useState(false);
+  const [isAudioDevice, setIsAudioDevice] = useState(false);
   const [users, setUsers] = useState([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  
+  const [currentSource, setCurrentSource] = useState(null);
+
   const audioRef = useRef(null);
   const announcementRef = useRef(null);
+
+  const applyPlaylist = useCallback((nextPlaylist) => {
+    if (!nextPlaylist) return;
+
+    setPlaylist(nextPlaylist);
+    setUsers(nextPlaylist.users || []);
+    setCurrentSong(findCurrentSong(nextPlaylist));
+    setIsPlaying(Boolean(nextPlaylist.isPlaying));
+    setCurrentTime(nextPlaylist.currentTime || 0);
+    setCurrentSource(nextPlaylist.currentSource || null);
+    setIsAudioDevice(nextPlaylist.audioClientId === clientId);
+  }, [clientId]);
+
+  const resetPlaylist = useCallback(() => {
+    setPlaylist(null);
+    setCurrentSong(null);
+    setIsHost(false);
+    setIsAudioDevice(false);
+    setUsers([]);
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setCurrentSource(null);
+  }, []);
 
   useEffect(() => {
     if (!socket) return;
 
-    // Socket event listeners
     const handlePlaylistState = (data) => {
-      setPlaylist(data.playlist);
-      setIsHost(data.isHost);
-      setUsers(data.playlist.users);
-      setCurrentSong(data.playlist.songs.find(song => 
-        song._id === data.playlist.currentPlaying
-      ));
-      setIsPlaying(data.playlist.isPlaying);
+      applyPlaylist(data.playlist);
+      setIsHost(Boolean(data.isHost));
+    };
+
+    const handlePlaylistUpdated = (data) => {
+      applyPlaylist(data.playlist);
+      if (data.playlist) {
+        setIsHost(data.playlist.ownerClientId === clientId || data.playlist.ownerSocketId === socket.id);
+      }
     };
 
     const handleSongAdded = (data) => {
-      setPlaylist(data.playlist);
+      applyPlaylist(data.playlist);
     };
 
     const handlePlaybackStarted = (data) => {
       setIsPlaying(true);
-      setCurrentTime(data.currentTime);
+      setCurrentTime(data.currentTime || 0);
+      setCurrentSource(data.source || null);
+      if (data.song) {
+        setCurrentSong(data.song);
+      }
     };
 
     const handlePlaybackPaused = (data) => {
       setIsPlaying(false);
-      setCurrentTime(data.currentTime);
+      setCurrentTime(data.currentTime || 0);
+    };
+
+    const handlePlaybackProgress = (data) => {
+      setCurrentTime(data.currentTime || 0);
+      if (data.playlist) {
+        applyPlaylist(data.playlist);
+      } else if (data.duration && currentSong?._id === data.songId) {
+        setCurrentSong((song) => song ? { ...song, duration: data.duration } : song);
+      }
     };
 
     const handleSongChanged = (data) => {
-      setCurrentSong(playlist?.songs.find(song => song._id === data.songId));
-      setIsPlaying(true);
+      applyPlaylist(data.playlist);
+      if (data.song) {
+        setCurrentSong(data.song);
+      }
+      setIsPlaying(Boolean(data.playlist?.isPlaying ?? true));
+      setCurrentTime(data.currentTime || data.playlist?.currentTime || 0);
+      setCurrentSource(data.source || data.playlist?.currentSource || null);
+    };
+
+    const handlePlaybackStopped = () => {
+      setCurrentSong(null);
+      setIsPlaying(false);
       setCurrentTime(0);
+      setCurrentSource(null);
     };
 
     const handleUserJoined = (data) => {
-      setUsers(data.users);
+      setUsers(data.users || []);
     };
 
     const handleUserLeft = (data) => {
-      setUsers(data.users);
+      setUsers(data.users || []);
     };
 
     const handleHostChanged = (data) => {
-      setIsHost(socket.id === data.newHostSocketId);
+      if (data.playlist) {
+        applyPlaylist(data.playlist);
+      }
+      setIsHost(data.newHostClientId === clientId || socket.id === data.newHostSocketId);
+    };
+
+    const handleAudioDeviceChanged = (data) => {
+      if (data.playlist) {
+        applyPlaylist(data.playlist);
+      }
+      setIsAudioDevice(data.audioClientId === clientId || socket.id === data.audioSocketId);
+    };
+
+    const handleAudioDeviceAssigned = (data) => {
+      if (data.playlist) {
+        applyPlaylist(data.playlist);
+      }
+      setIsAudioDevice(true);
+    };
+
+    const handleAudioDeviceRelease = (data) => {
+      if (data.playlist) {
+        applyPlaylist(data.playlist);
+      }
+      setIsAudioDevice(false);
+    };
+
+    const handleVolumeChanged = (data) => {
+      if (data.playlist) {
+        applyPlaylist(data.playlist);
+      }
+    };
+
+    const handleLeftRoom = () => {
+      resetPlaylist();
     };
 
     const handleError = (data) => {
@@ -62,85 +158,108 @@ export const usePlaylist = (socket) => {
     };
 
     socket.on('playlist-state', handlePlaylistState);
+    socket.on('playlist-updated', handlePlaylistUpdated);
     socket.on('song-added', handleSongAdded);
     socket.on('playback-started', handlePlaybackStarted);
     socket.on('playback-paused', handlePlaybackPaused);
+    socket.on('playback-progress', handlePlaybackProgress);
+    socket.on('playback-stopped', handlePlaybackStopped);
     socket.on('song-changed', handleSongChanged);
     socket.on('user-joined', handleUserJoined);
     socket.on('user-left', handleUserLeft);
     socket.on('host-changed', handleHostChanged);
+    socket.on('audio-device-changed', handleAudioDeviceChanged);
+    socket.on('audio-device-assigned', handleAudioDeviceAssigned);
+    socket.on('audio-device-release', handleAudioDeviceRelease);
+    socket.on('volume-changed', handleVolumeChanged);
+    socket.on('left-room', handleLeftRoom);
     socket.on('error', handleError);
 
     return () => {
       socket.off('playlist-state', handlePlaylistState);
+      socket.off('playlist-updated', handlePlaylistUpdated);
       socket.off('song-added', handleSongAdded);
       socket.off('playback-started', handlePlaybackStarted);
       socket.off('playback-paused', handlePlaybackPaused);
+      socket.off('playback-progress', handlePlaybackProgress);
+      socket.off('playback-stopped', handlePlaybackStopped);
       socket.off('song-changed', handleSongChanged);
       socket.off('user-joined', handleUserJoined);
       socket.off('user-left', handleUserLeft);
       socket.off('host-changed', handleHostChanged);
+      socket.off('audio-device-changed', handleAudioDeviceChanged);
+      socket.off('audio-device-assigned', handleAudioDeviceAssigned);
+      socket.off('audio-device-release', handleAudioDeviceRelease);
+      socket.off('volume-changed', handleVolumeChanged);
+      socket.off('left-room', handleLeftRoom);
       socket.off('error', handleError);
     };
-  }, [socket, playlist]);
+  }, [socket, clientId, applyPlaylist, resetPlaylist, currentSong?._id]);
 
-  // Announcement system with volume ducking
-  // In usePlaylist.js, update the playAnnouncement function:
-const playAnnouncement = async (text, youtubePlayer) => {
-  if (!youtubePlayer) return;
+  const playAnnouncement = async (text, youtubePlayer) => {
+    if (!youtubePlayer) return;
 
-  try {
-    // Store current volume
-    const currentVolume = youtubePlayer.getVolume ? youtubePlayer.getVolume() : 100;
-    
-    // Duck volume to 30%
-    if (youtubePlayer.setVolume) {
-      youtubePlayer.setVolume(30);
-    }
-
-    // Create speech synthesis
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
-    utterance.volume = 0.8;
-
-    utterance.onend = () => {
-      // Gradually increase volume back to original
-      if (youtubePlayer.setVolume) {
-        const fadeBack = setInterval(() => {
-          const currentVol = youtubePlayer.getVolume ? youtubePlayer.getVolume() : 50;
-          if (currentVol < currentVolume) {
-            youtubePlayer.setVolume(Math.min(currentVolume, currentVol + 10));
-          } else {
-            clearInterval(fadeBack);
-          }
-        }, 300);
+    const safePlayerCall = (methodName, fallback, ...args) => {
+      if (!youtubePlayer?.[methodName]) return fallback;
+      try {
+        return youtubePlayer[methodName](...args);
+      } catch (error) {
+        console.warn(`Announcement player ${methodName} failed:`, error);
+        return fallback;
       }
     };
 
-    speechSynthesis.speak(utterance);
-  } catch (error) {
-    console.error('Announcement failed:', error);
-    // Ensure volume returns to normal even if announcement fails
-    if (youtubePlayer.setVolume) {
-      youtubePlayer.setVolume(100);
+    try {
+      const currentVolume = safePlayerCall('getVolume', 100);
+
+      safePlayerCall('setVolume', undefined, 30);
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.9;
+      utterance.pitch = 1;
+      utterance.volume = 0.8;
+
+      utterance.onend = () => {
+        if (youtubePlayer.setVolume) {
+          const fadeBack = setInterval(() => {
+            const iframe = safePlayerCall('getIframe', null);
+            if (iframe && !iframe.isConnected) {
+              clearInterval(fadeBack);
+              return;
+            }
+
+            const currentVol = safePlayerCall('getVolume', 50);
+            if (currentVol < currentVolume) {
+              safePlayerCall('setVolume', undefined, Math.min(currentVolume, currentVol + 10));
+            } else {
+              clearInterval(fadeBack);
+            }
+          }, 300);
+        }
+      };
+
+      speechSynthesis.speak(utterance);
+    } catch (error) {
+      console.error('Announcement failed:', error);
+      safePlayerCall('setVolume', undefined, 100);
     }
-  }
-};
+  };
 
   return {
     playlist,
     currentSong,
+    currentSource,
     isHost,
+    isAudioDevice,
     users,
     isPlaying,
     currentTime,
     audioRef,
     announcementRef,
     playAnnouncement,
-    setPlaylist
+    setPlaylist,
+    resetPlaylist
   };
 };
 
-// Make sure it's the default export as well
 export default usePlaylist;

@@ -29,14 +29,17 @@ const UserAddSong = ({ socket, username }) => {
 
   return (
     <div className="card">
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-2xl">🎵</span>
-        <h2 className="text-xl font-semibold text-gray-900">Add a Song</h2>
+      <div className="card-title mb-5">
+        <div>
+          <p className="eyebrow">Requests</p>
+          <h2 className="mt-1 text-xl font-bold text-white">Add a song</h2>
+        </div>
+        <span className="badge badge-green">Queue priority</span>
       </div>
       
-      <form onSubmit={handleAddSong} className="space-y-4">
+      <form onSubmit={handleAddSong} className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_auto] lg:items-end">
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
+          <label className="mb-2 block text-sm font-semibold text-slate-300">
             YouTube URL
           </label>
           <input
@@ -50,8 +53,8 @@ const UserAddSong = ({ socket, username }) => {
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Message (Optional)
+          <label className="mb-2 block text-sm font-semibold text-slate-300">
+            Message
           </label>
           <input
             type="text"
@@ -64,21 +67,12 @@ const UserAddSong = ({ socket, username }) => {
 
         <button 
           type="submit" 
-          className="btn btn-primary w-full"
+          className="btn btn-primary h-[46px] w-full lg:w-auto"
           disabled={isLoading || !youtubeUrl.trim()}
         >
-          ➕ {isLoading ? 'Adding...' : 'Add to Playlist'}
+          {isLoading ? 'Adding...' : 'Add song'}
         </button>
       </form>
-
-      <div className="mt-4 text-sm text-gray-600">
-        <p className="font-semibold mb-1">Supported formats:</p>
-        <ul className="list-disc list-inside space-y-1 text-xs">
-          <li>youtube.com/watch?v=ID</li>
-          <li>youtu.be/ID</li>
-          <li>music.youtube.com/watch?v=ID</li>
-        </ul>
-      </div>
     </div>
   );
 };

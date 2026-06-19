@@ -43,6 +43,9 @@ pids/
 *.sock
 tmp/
 uploads/
+data/
+*.sqlite
+*.sqlite-*
 
 # Certificates / keys
 *.pem
