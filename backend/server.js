@@ -4,10 +4,24 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { networkInterfaces } from 'os'; // Import from 'os' directly
-
-import { initializePlaylistSocket } from './sockets/playlistSocket.js';
+import cookieParser from 'cookie-parser';
+import passport from 'passport';
+import authRouter from './routes/auth.js';
+import roomsRouter from './routes/rooms.js';
+import youtubeRouter from './routes/youtube.js';
 
 dotenv.config();
+
+const dbMode = (process.env.DB_MODE || 'sqlite').toLowerCase();
+let initializePlaylistSocket;
+
+if (dbMode === 'postgres') {
+  ({ initializePlaylistSocket } = await import('./sockets/playlistSocketCloud.js'));
+  console.log('Database mode: PostgreSQL (Cloud)');
+} else {
+  ({ initializePlaylistSocket } = await import('./sockets/playlistSocket.js'));
+  console.log('Database mode: SQLite (LAN)');
+}
 
 const VIRTUAL_INTERFACE_PATTERN = /(virtual|vmware|vbox|virtualbox|hyper-v|vethernet|docker|wsl|loopback|teredo|tap|tunnel|vpn|npcap)/i;
 const PREFERRED_INTERFACE_PATTERN = /(wi-?fi|wireless|wlan|ethernet|local area connection)/i;
@@ -63,12 +77,23 @@ const io = new Server(server, {
 });
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  credentials: true
+}));
 app.use(express.json());
+app.use(cookieParser());
+app.use(passport.initialize());
 
 // Routes
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'Waveio LAN Server is running' });
+  res.json({
+    status: 'ok',
+    product: 'Waveio',
+    company: 'KRODOT',
+    mode: dbMode,
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Network info endpoint
@@ -85,6 +110,10 @@ app.get('/api/network-info', (req, res) => {
     yourNetworkURL: primary ? `http://${primary.address}:${FRONTEND_PORT}` : null
   });
 });
+
+app.use('/api/auth', authRouter);
+app.use('/api/rooms', roomsRouter);
+app.use('/api/youtube', youtubeRouter);
 
 // Initialize sockets
 initializePlaylistSocket(io);

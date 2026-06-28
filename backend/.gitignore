@@ -54,3 +54,4 @@ data/
 
 # Docker overrides
 docker-compose.override.yml
+/.playwright-mcp/*.log
