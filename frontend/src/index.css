@@ -4,15 +4,32 @@
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 focus:ring-offset-2 focus:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-45;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all duration-200 focus:outline-none disabled:cursor-not-allowed disabled:opacity-45;
+    border-color: rgba(201, 168, 76, 0.28);
+    --tw-ring-color: rgba(201, 168, 76, 0.36);
+    --tw-ring-offset-color: #0A0A0A;
   }
   
   .btn-primary {
-    @apply bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-950/30 hover:bg-cyan-300;
+    @apply shadow-none;
+    background: #C9A84C;
+    color: #0A0A0A;
+  }
+
+  .btn-primary:hover {
+    background: #F0C040;
   }
   
   .btn-secondary {
-    @apply border border-white/10 bg-white/5 text-slate-100 shadow-sm hover:border-cyan-300/40 hover:bg-white/10;
+    @apply border shadow-none;
+    border-color: rgba(201, 168, 76, 0.22);
+    background: rgba(201, 168, 76, 0.06);
+    color: #F5F5F5;
+  }
+
+  .btn-secondary:hover {
+    border-color: rgba(201, 168, 76, 0.48);
+    background: rgba(201, 168, 76, 0.11);
   }
 
   .btn-danger {
@@ -20,19 +37,32 @@
   }
   
   .input {
-    @apply w-full rounded-lg border border-white/10 bg-slate-950/70 px-3.5 py-3 text-sm text-slate-100 shadow-inner shadow-black/20 outline-none transition-colors duration-200 placeholder:text-slate-500 focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20;
+    @apply w-full rounded-lg border px-3.5 py-3 text-sm outline-none transition-colors duration-200 focus:ring-2;
+    border-color: rgba(201, 168, 76, 0.18);
+    background: #141414;
+    color: #F5F5F5;
+    --tw-ring-color: rgba(201, 168, 76, 0.22);
+  }
+
+  .input::placeholder {
+    color: #888880;
   }
   
   .card {
-    @apply rounded-lg border border-white/10 bg-slate-900/80 p-5 text-slate-100 shadow-2xl shadow-black/20 backdrop-blur;
+    @apply rounded-lg border p-5 shadow-none backdrop-blur;
+    border-color: rgba(201, 168, 76, 0.16);
+    background: rgba(20, 20, 20, 0.92);
+    color: #F5F5F5;
   }
 
   .card-title {
-    @apply flex items-start justify-between gap-3 border-b border-white/10 pb-4;
+    @apply flex items-start justify-between gap-3 border-b pb-4;
+    border-color: rgba(201, 168, 76, 0.16);
   }
 
   .eyebrow {
-    @apply text-xs font-bold uppercase tracking-wide text-cyan-300;
+    @apply text-xs font-semibold uppercase tracking-wide;
+    color: #C9A84C;
   }
 
   .badge {
@@ -40,23 +70,36 @@
   }
 
   .badge-green {
-    @apply border-cyan-300/30 bg-cyan-400/10 text-cyan-200;
+    border-color: rgba(201, 168, 76, 0.38);
+    background: rgba(201, 168, 76, 0.13);
+    color: #F0C040;
   }
 
   .badge-blue {
-    @apply border-violet-300/30 bg-violet-400/10 text-violet-200;
+    border-color: rgba(136, 136, 128, 0.34);
+    background: rgba(136, 136, 128, 0.10);
+    color: #D0D0C8;
   }
 
   .badge-slate {
-    @apply border-white/10 bg-white/5 text-slate-200;
+    border-color: rgba(201, 168, 76, 0.18);
+    background: rgba(201, 168, 76, 0.06);
+    color: #F5F5F5;
   }
 
   .panel {
-    @apply rounded-lg border border-white/10 bg-slate-950/50 p-4;
+    @apply rounded-lg border p-4;
+    border-color: rgba(201, 168, 76, 0.16);
+    background: rgba(26, 24, 16, 0.55);
   }
   
   .song-item {
-    @apply flex items-center gap-4 border-b border-white/10 p-4 transition-colors duration-200 hover:bg-white/5;
+    @apply flex items-center gap-4 border-b p-4 transition-colors duration-200;
+    border-color: rgba(201, 168, 76, 0.12);
+  }
+
+  .song-item:hover {
+    background: rgba(201, 168, 76, 0.06);
   }
   
   .song-item:last-child {
@@ -64,20 +107,26 @@
   }
   
   .current-song {
-    @apply border-l-4 border-cyan-300 bg-cyan-400/10;
+    @apply border-l-4;
+    border-left-color: #C9A84C;
+    background: rgba(201, 168, 76, 0.12);
+  }
+
+  .brand-mark {
+    @apply inline-flex items-center justify-center rounded-lg border font-mono font-semibold;
+    border-color: rgba(201, 168, 76, 0.45);
+    background: #1A1810;
+    color: #C9A84C;
   }
 }
 
 html {
-  background: #020617;
+  background: #0A0A0A;
 }
 
 body {
   min-height: 100vh;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-  background:
-    radial-gradient(circle at 20% 0%, rgba(34, 211, 238, 0.20), transparent 28rem),
-    radial-gradient(circle at 80% 10%, rgba(168, 85, 247, 0.18), transparent 26rem),
-    linear-gradient(180deg, #020617 0%, #0f172a 48%, #111827 100%);
-  color: #e2e8f0;
+  background: #0A0A0A;
+  color: #F5F5F5;
 }

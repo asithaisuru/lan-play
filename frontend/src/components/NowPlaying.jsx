@@ -495,9 +495,9 @@ const NowPlaying = ({
   if (!currentSong) {
     return (
       <div className="card">
-        <div className="flex min-h-56 flex-col items-center justify-center rounded-lg border border-dashed border-white/15 bg-slate-950/50 px-6 py-10 text-center">
-          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-lg bg-cyan-400/10 text-lg font-black text-cyan-200 shadow-sm">
-            LP
+        <div className="flex min-h-56 flex-col items-center justify-center rounded-lg border border-dashed border-[#C9A84C22] bg-[#0A0A0A]/60 px-6 py-10 text-center">
+          <div className="brand-mark mb-4">
+            <span className="text-xl leading-none">♛</span>
           </div>
           <h3 className="text-lg font-bold text-white">Nothing playing yet</h3>
           <p className="mt-1 max-w-sm text-sm text-slate-400">Add a request or start the default playlist when you are ready.</p>
@@ -582,7 +582,7 @@ const NowPlaying = ({
             type="button"
             onClick={handlePlayPause}
             disabled={!hasPlayableTracks}
-            className={`${isFullscreenControls ? 'h-14 w-14 text-xl sm:h-16 sm:w-16 sm:text-2xl' : 'h-12 w-12 text-lg'} inline-flex items-center justify-center rounded-full bg-cyan-400 font-black text-slate-950 shadow-lg shadow-cyan-950/30 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40`}
+            className={`${isFullscreenControls ? 'h-14 w-14 text-xl sm:h-16 sm:w-16 sm:text-2xl' : 'h-12 w-12 text-lg'} inline-flex items-center justify-center rounded-full bg-[#C9A84C] font-black text-[#0A0A0A] shadow-lg shadow-black/30 transition hover:bg-[#F0C040] disabled:cursor-not-allowed disabled:opacity-40`}
             title={isPlaying ? 'Pause' : 'Play'}
             aria-label={isPlaying ? 'Pause' : 'Play'}
           >
@@ -602,7 +602,7 @@ const NowPlaying = ({
           </button>
         </div>
 
-        <div className={`${isFullscreenControls ? 'mt-4 max-w-full px-2 py-2.5 sm:mt-5 sm:max-w-xl sm:px-4 sm:py-3' : 'mt-4 max-w-sm px-3 py-2'} mx-auto flex w-full min-w-0 items-center justify-center gap-2 rounded-lg border border-white/10 bg-slate-950/45 sm:gap-3`}>
+        <div className={`${isFullscreenControls ? 'mt-4 max-w-full px-2 py-2.5 sm:mt-5 sm:max-w-xl sm:px-4 sm:py-3' : 'mt-4 max-w-sm px-3 py-2'} mx-auto flex w-full min-w-0 items-center justify-center gap-2 rounded-lg border border-[#C9A84C22] bg-[#0A0A0A]/55 sm:gap-3`}>
           <button
             type="button"
             onClick={() => adjustVolume(-10)}
@@ -620,7 +620,7 @@ const NowPlaying = ({
             step="1"
             value={roomVolume}
             onChange={(event) => handleVolumeChange(Number(event.target.value))}
-            className="min-w-0 flex-1 accent-cyan-400"
+            className="min-w-0 flex-1 accent-[#C9A84C]"
             aria-label="Audio volume"
           />
           <button
@@ -647,20 +647,20 @@ const NowPlaying = ({
         <div className="bg-black/45 p-5 text-white">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wide text-cyan-300">Now playing</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-[#C9A84C]">Now playing</p>
               <h2 className="mt-1 text-xl font-black">Room audio</h2>
             </div>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={openFullscreen}
-                className="badge border-white/10 bg-white/5 text-slate-200 transition hover:border-cyan-300/40 hover:bg-white/10"
+                className="badge border-[#C9A84C22] bg-[#C9A84C0F] text-slate-200 transition hover:border-[#C9A84C66] hover:bg-[#C9A84C18]"
                 title="Full screen"
                 aria-label="Open full screen player"
               >
                 <span aria-hidden="true">⛶</span>
               </button>
-              <span className={isAudioDevice ? "badge border-cyan-300/30 bg-cyan-400/10 text-cyan-200" : "badge border-violet-300/30 bg-violet-400/10 text-violet-200"}>
+              <span className={isAudioDevice ? "badge border-[#C9A84C55] bg-[#C9A84C14] text-[#F0C040]" : "badge border-[#88888055] bg-[#88888018] text-[#D0D0C8]"}>
                 {isAudioDevice ? `Audio device ${isPlayerReady ? "ready" : "loading"}` : "Listening"}
               </span>
               {isHost && (
@@ -692,7 +692,7 @@ const NowPlaying = ({
                 <span className="rounded-full bg-white/10 px-3 py-1">
                   {currentSource === 'default' ? 'Default playlist' : `Added by ${currentSong.addedBy}`}
                 </span>
-                <span className={isPlaying ? "rounded-full bg-cyan-400/20 px-3 py-1 text-cyan-200" : "rounded-full bg-amber-400/20 px-3 py-1 text-amber-200"}>
+                <span className={isPlaying ? "rounded-full bg-[#C9A84C22] px-3 py-1 text-[#F0C040]" : "rounded-full bg-[#88888022] px-3 py-1 text-[#D0D0C8]"}>
                   {isPlaying ? "Playing" : "Paused"}
                 </span>
               </div>
@@ -704,7 +704,7 @@ const NowPlaying = ({
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-white/10">
                   <div
-                    className="h-full rounded-full bg-cyan-400 transition-all duration-500"
+                    className="h-full rounded-full bg-[#C9A84C] transition-all duration-500"
                     style={{ width: `${progressPercent}%` }}
                   />
                 </div>
@@ -718,7 +718,7 @@ const NowPlaying = ({
         </div>
 
         {currentSource === 'queue' && currentSong.message && (
-          <div className="border-b border-white/10 bg-slate-950/40 p-5">
+          <div className="border-b border-[#C9A84C22] bg-[#0A0A0A]/45 p-5">
             <p className="eyebrow">Message</p>
             <p className="mt-2 text-sm leading-6 text-slate-300">"{currentSong.message}"</p>
           </div>
@@ -726,23 +726,23 @@ const NowPlaying = ({
 
         {/* Status indicators */}
         {!isAudioDevice && isPlaying && (
-          <div className="m-5 rounded-lg border border-cyan-300/20 bg-cyan-400/10 p-4">
-            <p className="font-semibold text-cyan-100">Music is playing on the assigned audio device</p>
-            <p className="mt-1 text-sm text-cyan-200/80">You are synced with the room playlist.</p>
+          <div className="m-5 rounded-lg border border-[#C9A84C33] bg-[#C9A84C11] p-4">
+            <p className="font-semibold text-[#F0C040]">Music is playing on the assigned audio device</p>
+            <p className="mt-1 text-sm text-[#D0D0C8]">You are synced with the room playlist.</p>
           </div>
         )}
 
         {!isAudioDevice && !isPlaying && (
-          <div className="m-5 rounded-lg border border-amber-300/20 bg-amber-400/10 p-4">
-            <p className="font-semibold text-amber-100">Playback paused</p>
-            <p className="mt-1 text-sm text-amber-200/80">Waiting for the host to resume.</p>
+          <div className="m-5 rounded-lg border border-[#88888033] bg-[#88888011] p-4">
+            <p className="font-semibold text-[#D0D0C8]">Playback paused</p>
+            <p className="mt-1 text-sm text-[#888880]">Waiting for the host to resume.</p>
           </div>
         )}
 
         {isAudioDevice && !isPlayerReady && (
-          <div className="m-5 rounded-lg border border-amber-300/20 bg-amber-400/10 p-4">
-            <p className="font-semibold text-amber-100">Initializing audio player</p>
-            <p className="mt-1 text-sm text-amber-200/80">The host player is preparing the next track.</p>
+          <div className="m-5 rounded-lg border border-[#88888033] bg-[#88888011] p-4">
+            <p className="font-semibold text-[#D0D0C8]">Initializing audio player</p>
+            <p className="mt-1 text-sm text-[#888880]">The host player is preparing the next track.</p>
           </div>
         )}
 
@@ -755,9 +755,9 @@ const NowPlaying = ({
       </div>
 
       {isFullscreen && (
-        <div className="fixed inset-0 z-50 max-w-[100vw] overflow-hidden bg-slate-950 text-white">
+          <div className="fixed inset-0 z-50 max-w-[100vw] overflow-hidden bg-[#0A0A0A] text-white">
           <div className="flex h-[100dvh] min-h-0 max-w-full flex-col overflow-x-hidden">
-            <div className="flex max-w-full flex-shrink-0 items-center justify-between gap-3 overflow-hidden border-b border-white/10 bg-slate-950/95 px-4 py-2.5 backdrop-blur sm:gap-4 sm:px-5 sm:py-4">
+            <div className="flex max-w-full flex-shrink-0 items-center justify-between gap-3 overflow-hidden border-b border-[#C9A84C22] bg-[#0A0A0A]/95 px-4 py-2.5 backdrop-blur sm:gap-4 sm:px-5 sm:py-4">
               <div className="min-w-0">
                 <p className="eyebrow">Now playing</p>
                 <p className="mt-0.5 truncate text-xs text-slate-400 sm:mt-1 sm:text-sm">
@@ -786,7 +786,7 @@ const NowPlaying = ({
 
               <div className="mx-auto flex min-h-0 w-full max-w-full flex-col justify-center overflow-hidden text-center sm:max-w-4xl lg:text-left">
                 <div className="flex flex-wrap items-center justify-center gap-1.5 lg:justify-start">
-                  <span className={isPlaying ? "rounded-full bg-cyan-400/20 px-3 py-1 text-xs font-semibold text-cyan-200 sm:text-sm" : "rounded-full bg-amber-400/20 px-3 py-1 text-xs font-semibold text-amber-200 sm:text-sm"}>
+                  <span className={isPlaying ? "rounded-full bg-[#C9A84C22] px-3 py-1 text-xs font-semibold text-[#F0C040] sm:text-sm" : "rounded-full bg-[#88888022] px-3 py-1 text-xs font-semibold text-[#D0D0C8] sm:text-sm"}>
                     {isPlaying ? "Playing" : "Paused"}
                   </span>
                   <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-slate-200 sm:text-sm">
@@ -809,7 +809,7 @@ const NowPlaying = ({
                   </div>
                   <div className="h-2.5 overflow-hidden rounded-full bg-white/10 sm:h-3">
                     <div
-                      className="h-full rounded-full bg-cyan-400 transition-all duration-500"
+                      className="h-full rounded-full bg-[#C9A84C] transition-all duration-500"
                       style={{ width: `${progressPercent}%` }}
                     />
                   </div>
@@ -826,7 +826,7 @@ const NowPlaying = ({
                       className="h-10 w-16 flex-shrink-0 rounded object-cover sm:h-16 sm:w-24"
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold uppercase tracking-wide text-cyan-300">Next song</p>
+                      <p className="text-xs font-bold uppercase tracking-wide text-[#C9A84C]">Next song</p>
                       <p className="truncate text-sm font-semibold text-white sm:text-base">{nextSong.title}</p>
                       <p className="truncate text-xs text-slate-400 sm:text-sm">{nextSong.source === 'default' ? 'Default playlist' : `Added by ${nextSong.addedBy}`}</p>
                     </div>
@@ -842,7 +842,7 @@ const NowPlaying = ({
             </div>
 
             {isHost && (
-              <div className="max-w-full flex-shrink-0 overflow-hidden border-t border-white/10 bg-slate-950/95 px-3 py-2.5 shadow-2xl shadow-black/50 backdrop-blur sm:hidden">
+              <div className="max-w-full flex-shrink-0 overflow-hidden border-t border-[#C9A84C22] bg-[#0A0A0A]/95 px-3 py-2.5 shadow-2xl shadow-black/50 backdrop-blur sm:hidden">
                 {renderHostControls('fullscreen')}
               </div>
             )}

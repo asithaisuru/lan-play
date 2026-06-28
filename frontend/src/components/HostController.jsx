@@ -58,7 +58,7 @@ const HostController = ({
   if (!isHost) {
     return (
       <div className="card">
-        <div className="rounded-lg border border-violet-300/20 bg-violet-400/10 p-5">
+        <div className="rounded-lg border border-[#C9A84C22] bg-[#1A1810] p-5">
           <p className="eyebrow">Listener mode</p>
           <h3 className="mt-1 text-lg font-bold text-white">Host controls are locked</h3>
           <p className="mt-2 text-sm text-slate-400">
@@ -92,7 +92,7 @@ const HostController = ({
             type="checkbox"
             checked={Boolean(playlist?.announcementEnabled)}
             onChange={handleAnnouncementToggle}
-            className="h-5 w-5 accent-cyan-400"
+            className="h-5 w-5 accent-[#C9A84C]"
           />
         </label>
       </div>
@@ -127,7 +127,7 @@ const HostController = ({
 
         {playlist?.defaultSongs?.length ? (
           <div className="space-y-2">
-            <div className="max-h-56 overflow-y-auto rounded-lg border border-white/10 bg-slate-950/60">
+            <div className="max-h-56 overflow-y-auto rounded-lg border border-[#C9A84C22] bg-[#0A0A0A]/60">
               {playlist.defaultSongs.map((song, index) => (
                 <div key={song._id} className="flex items-center gap-3 border-b border-white/10 p-3 last:border-b-0">
                   <img
@@ -138,7 +138,7 @@ const HostController = ({
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-white">{song.title}</p>
                     {playlist.currentPlaying === song._id && playlist.currentSource === 'default' && (
-                      <p className="text-xs text-cyan-300">Playing as default</p>
+                      <p className="text-xs text-[#C9A84C]">Playing as default</p>
                     )}
                   </div>
                   <div className="flex items-center gap-1">
@@ -196,13 +196,13 @@ const HostController = ({
               key={user.socketId}
               className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm ${
                 user.isHost 
-                  ? 'border-cyan-300/30 bg-cyan-400/10 text-cyan-100' 
-                  : 'border-white/10 bg-slate-950/60 text-slate-300'
+                  ? 'border-[#C9A84C55] bg-[#C9A84C14] text-[#F0C040]' 
+                  : 'border-[#C9A84C22] bg-[#0A0A0A]/60 text-slate-300'
               }`}
             >
               <span className="flex min-w-0 items-center gap-2 truncate font-semibold">
                 <span className="truncate">{user.username}</span>
-                {user.isHost && <span className="rounded-full bg-cyan-400/20 px-2 py-0.5 text-xs font-bold uppercase text-cyan-100">Host</span>}
+                {user.isHost && <span className="rounded-full bg-[#C9A84C22] px-2 py-0.5 text-xs font-bold uppercase text-[#F0C040]">Host</span>}
                 {user.isAudioDevice && <span className="rounded-full bg-emerald-400/20 px-2 py-0.5 text-xs font-bold uppercase text-emerald-100">Audio</span>}
               </span>
               <div className="flex flex-shrink-0 items-center gap-2">
@@ -210,7 +210,7 @@ const HostController = ({
                   <button
                     type="button"
                     onClick={() => handleAssignAudioDevice(user.clientId)}
-                    className="rounded-md bg-emerald-400 px-2.5 py-1 text-xs font-semibold text-slate-950 hover:bg-emerald-300"
+                    className="rounded-md bg-[#D0D0C8] px-2.5 py-1 text-xs font-semibold text-[#0A0A0A] hover:bg-[#F5F5F5]"
                     title={`Play audio from ${user.username}'s device`}
                   >
                     Use audio
@@ -220,7 +220,7 @@ const HostController = ({
                   <button
                     type="button"
                     onClick={() => handleTransferHost(user.clientId)}
-                    className="rounded-md bg-cyan-400 px-2.5 py-1 text-xs font-semibold text-slate-950 hover:bg-cyan-300"
+                    className="rounded-md bg-[#C9A84C] px-2.5 py-1 text-xs font-semibold text-[#0A0A0A] hover:bg-[#F0C040]"
                     title={`Transfer host to ${user.username}`}
                   >
                     Make host

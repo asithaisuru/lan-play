@@ -1,8 +1,10 @@
-# LAN Play
+# Waveio LAN
 
-LAN Play is a local-network shared YouTube playlist system for parties, shops, offices, and small events. Users join a room from their own device, add songs, and the assigned audio device plays the room playlist.
+Waveio LAN is a local-network shared YouTube playlist system for parties, shops, offices, and small events. Users join a room from their own device, add songs, and the assigned audio device plays the room playlist.
 
 The host controls the room, but audio playback can be assigned to any connected device.
+
+Waveio is a KRODOT product | Crown of Technology.
 
 ## Features
 
@@ -60,8 +62,8 @@ start-lan-play.bat
 
 This opens two terminal windows:
 
-- `LAN Play Backend`
-- `LAN Play Frontend`
+- `Waveio LAN Backend`
+- `Waveio LAN Frontend`
 
 The backend runs on:
 
@@ -146,6 +148,10 @@ Important notes:
 - If a browser blocks autoplay, click once on the assigned audio device page, then press play again.
 - If the audio device disconnects, the app falls back to the owner if available, otherwise the oldest connected user.
 
+## Playback Model
+
+Waveio LAN uses the official YouTube IFrame API for browser playback. It does not use `ytdl-core`, `play-dl`, `youtube-dl`, direct audio extraction, or server-side YouTube stream downloading.
+
 ## LAN Sharing
 
 The backend exposes network information at:
@@ -174,7 +180,7 @@ chrome-extension://...
 sharebx.js
 ```
 
-These usually come from browser extensions, ad blockers, privacy blockers, or YouTube telemetry requests being blocked. They are not LAN Play application errors.
+These usually come from browser extensions, ad blockers, privacy blockers, or YouTube telemetry requests being blocked. They are not Waveio application errors.
 
 For a clean test, open the app in an Incognito/InPrivate window with extensions disabled.
 
@@ -234,4 +240,6 @@ http://localhost:5000/api/health
 
 ## Notes
 
-LAN Play is designed for no-login local-network use. Users are identified by username, room code, and a browser-stored client ID.
+Waveio LAN is designed for no-login local-network use. Users are identified by username, room code, and a browser-stored client ID.
+
+Waveio is a KRODOT product. Copyright 2026 KRODOT. All rights reserved.

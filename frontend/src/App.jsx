@@ -23,6 +23,31 @@ const getUrlRoomCode = () => {
   return urlParams.get("room")?.trim().toUpperCase() || "";
 };
 
+const copyTextToClipboard = async (text) => {
+  if (navigator.clipboard?.writeText && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.setAttribute("readonly", "");
+  textArea.style.position = "fixed";
+  textArea.style.left = "-9999px";
+  textArea.style.top = "0";
+  document.body.appendChild(textArea);
+  textArea.select();
+
+  try {
+    const copied = document.execCommand("copy");
+    if (!copied) {
+      throw new Error("Copy command was blocked by the browser.");
+    }
+  } finally {
+    document.body.removeChild(textArea);
+  }
+};
+
 function App() {
   const [joined, setJoined] = useState(false);
   const [userInfo, setUserInfo] = useState(null);
@@ -91,8 +116,7 @@ function App() {
       : window.location.origin;
     const roomLink = `${baseUrl}?room=${userInfo?.roomCode}`;
 
-    navigator.clipboard
-      .writeText(roomLink)
+    copyTextToClipboard(roomLink)
       .then(() => {
         setShowCopied(true);
         setTimeout(() => setShowCopied(false), 2000);
@@ -139,17 +163,17 @@ function App() {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
         <div className="card w-full max-w-md text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-cyan-400 text-sm font-black text-slate-950">
-            LP
+          <div className="brand-mark mx-auto mb-4 h-12 w-12 text-sm">
+            ♛
           </div>
-          <h1 className="mb-2 text-2xl font-bold text-white">Connecting to LAN Play</h1>
-          <p className="text-slate-400">Starting the shared playlist session.</p>
-          <div className="mx-auto mt-5 h-9 w-9 animate-spin rounded-full border-2 border-white/10 border-t-cyan-300"></div>
-          <p className="mt-5 rounded-lg bg-slate-950/70 px-3 py-2 font-mono text-xs text-slate-400">
+          <h1 className="mb-2 text-2xl font-semibold text-[#F5F5F5]">Connecting to Waveio</h1>
+          <p className="text-[#888880]">Starting the shared playlist session.</p>
+          <div className="mx-auto mt-5 h-9 w-9 animate-spin rounded-full border-2 border-[#C9A84C22] border-t-[#C9A84C]"></div>
+          <p className="mt-5 rounded-lg bg-[#141414] px-3 py-2 font-mono text-xs text-[#888880]">
             {serverUrl}
           </p>
           {serverUrl.includes("localhost") && (
-            <p className="mt-3 text-xs text-amber-300">
+            <p className="mt-3 text-xs text-[#C9A84C]">
               Make sure backend is running on localhost:5000
             </p>
           )}
@@ -174,15 +198,33 @@ function App() {
   return (
     <div className="min-h-screen px-4 py-5 md:px-6 md:py-8">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-6 rounded-lg border border-white/10 bg-slate-900/80 p-4 shadow-2xl shadow-black/20 backdrop-blur md:p-5">
+        <div className="mb-4 rounded-lg border border-[#C9A84C33] bg-[#1A1810] p-4 text-sm text-[#F5F5F5] md:p-5">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="font-semibold text-[#C9A84C]">Waveio Cloud</p>
+              <p className="mt-1 text-[#888880]">Need internet rooms, subscriptions, Spotify, and unlimited guests? Get the cloud version.</p>
+            </div>
+            <a
+              href="https://waveio.app"
+              target="_blank"
+              rel="noreferrer"
+              className="btn btn-primary whitespace-nowrap"
+            >
+              waveio.app
+            </a>
+          </div>
+        </div>
+
+        <div className="mb-6 rounded-lg border border-[#C9A84C22] bg-[#141414]/90 p-4 backdrop-blur md:p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-cyan-400 text-sm font-black text-slate-950">
-                LP
+              <div className="brand-mark h-12 w-12 text-sm">
+                ♛
               </div>
               <div>
-                <p className="eyebrow">Live room</p>
-                <h1 className="text-2xl font-black tracking-tight text-white">LAN Play</h1>
+                <p className="eyebrow">Waveio LAN</p>
+                <h1 className="text-2xl font-semibold tracking-[0.02em] text-[#F5F5F5]">Waveio</h1>
+                <p className="text-xs text-[#888880]">A KRODOT Product | Crown of Technology</p>
               </div>
             </div>
 
@@ -193,7 +235,7 @@ function App() {
                 title="Copy room link"
               >
                 Room {userInfo?.roomCode}
-                <span className="rounded-full bg-cyan-400/20 px-1.5 py-0.5 font-sans text-[10px] text-cyan-100">
+                <span className="rounded-full bg-[#C9A84C22] px-1.5 py-0.5 font-sans text-[10px] text-[#F0C040]">
                   {showCopied ? "Copied" : "Copy"}
                 </span>
               </button>
@@ -204,24 +246,24 @@ function App() {
               <span className="badge badge-slate">{pendingCount} pending</span>
               <button
                 onClick={handleLeaveRoom}
-                className="btn btn-secondary px-3 py-1.5 text-xs"
+                className="btn btn-danger px-3 py-1.5 text-xs font-bold shadow-lg shadow-rose-950/20"
               >
                 Leave room
               </button>
             </div>
           </div>
 
-          <div className="mt-4 grid gap-3 text-sm text-slate-400 md:grid-cols-3">
-            <div className="flex items-center gap-1 rounded-lg bg-slate-950/60 px-3 py-2">
-              <span className="font-semibold text-white">{userInfo?.username}</span>
+          <div className="mt-4 grid gap-3 text-sm text-[#888880] md:grid-cols-3">
+            <div className="flex items-center gap-1 rounded-lg bg-[#0A0A0A]/70 px-3 py-2">
+              <span className="font-semibold text-[#F5F5F5]">{userInfo?.username}</span>
               <span>signed in</span>
             </div>
-            <div className="flex items-center gap-1 rounded-lg bg-slate-950/60 px-3 py-2">
-              <span className="font-semibold text-white">{playlist?.defaultSongs?.length || 0}</span>
+            <div className="flex items-center gap-1 rounded-lg bg-[#0A0A0A]/70 px-3 py-2">
+              <span className="font-semibold text-[#F5F5F5]">{playlist?.defaultSongs?.length || 0}</span>
               <span>default tracks</span>
             </div>
-            <div className="flex items-center gap-1 rounded-lg bg-slate-950/60 px-3 py-2">
-              <span className="font-semibold text-white">
+            <div className="flex items-center gap-1 rounded-lg bg-[#0A0A0A]/70 px-3 py-2">
+              <span className="font-semibold text-[#F5F5F5]">
                 {networkIP || (isLoadingIP ? "Detecting..." : "Local")}
               </span>
               <span>network</span>
@@ -230,15 +272,15 @@ function App() {
         </div>
 
         {isHost && networkIP && (
-          <div className="mb-5 rounded-lg border border-cyan-300/20 bg-cyan-400/10 p-4 text-sm text-cyan-100">
+          <div className="mb-5 rounded-lg border border-[#C9A84C33] bg-[#C9A84C11] p-4 text-sm text-[#F5F5F5]">
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="font-bold">Network access</p>
-                <p className="text-cyan-200/80">
+                <p className="text-[#888880]">
                   Other users can visit the room from your LAN using this address.
                 </p>
               </div>
-              <code className="rounded-lg bg-slate-950/70 px-3 py-2 font-mono text-xs text-cyan-100">
+              <code className="rounded-lg bg-[#0A0A0A] px-3 py-2 font-mono text-xs text-[#C9A84C]">
                 http://{networkIP}{window.location.port ? `:${window.location.port}` : ""}
               </code>
             </div>
@@ -275,6 +317,12 @@ function App() {
             <PlaylistDisplay playlist={playlist} currentSong={currentSong} />
           </div>
         </div>
+
+        <footer className="mt-8 border-t border-[#C9A84C22] py-5 text-center text-xs text-[#888880]">
+          Waveio — A KRODOT Product | Crown of Technology
+          <span className="mx-2">|</span>
+          © 2026 KRODOT. All rights reserved.
+        </footer>
       </div>
     </div>
   );

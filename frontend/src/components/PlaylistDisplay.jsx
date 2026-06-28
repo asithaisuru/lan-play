@@ -33,7 +33,7 @@ const PlaylistDisplay = ({ playlist, currentSong }) => {
       <div className="flex flex-shrink-0 flex-col items-end gap-1 text-xs text-slate-400">
         <span className="font-medium">{formatDuration(song.duration)}</span>
         {currentSong?._id === song._id && (
-          <span className="rounded-full bg-cyan-400 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-950">
+          <span className="rounded-full bg-[#C9A84C] px-2 py-0.5 text-[10px] font-bold uppercase text-[#0A0A0A]">
             Live
           </span>
         )}
@@ -52,7 +52,7 @@ const PlaylistDisplay = ({ playlist, currentSong }) => {
       </div>
 
       {!playlist?.songs?.length && !playlist?.defaultSongs?.length ? (
-        <div className="rounded-lg border border-dashed border-white/15 bg-slate-950/50 px-5 py-10 text-center">
+        <div className="rounded-lg border border-dashed border-[#C9A84C22] bg-[#0A0A0A]/60 px-5 py-10 text-center">
           <p className="font-semibold text-slate-200">No tracks yet</p>
           <p className="mt-1 text-sm text-slate-400">New requests and default tracks will appear here.</p>
         </div>
@@ -64,11 +64,11 @@ const PlaylistDisplay = ({ playlist, currentSong }) => {
               <span className="text-xs text-slate-400">{pendingSongs.length}</span>
             </div>
             {pendingSongs.length ? (
-              <div className="max-h-[420px] overflow-y-auto rounded-lg border border-white/10 bg-slate-950/50">
+              <div className="max-h-[420px] overflow-y-auto rounded-lg border border-[#C9A84C22] bg-[#0A0A0A]/55">
                 {pendingSongs.map((song, index) => renderSong(song, index))}
               </div>
             ) : (
-              <div className="rounded-lg border border-white/10 bg-slate-950/50 p-4 text-sm text-slate-400">
+              <div className="rounded-lg border border-[#C9A84C22] bg-[#0A0A0A]/55 p-4 text-sm text-slate-400">
                 No pending user requests.
               </div>
             )}
@@ -80,7 +80,7 @@ const PlaylistDisplay = ({ playlist, currentSong }) => {
                 <p className="text-sm font-bold text-slate-100">Default playlist</p>
                 <span className="text-xs text-slate-400">{playlist.defaultSongs.length}</span>
               </div>
-              <div className="max-h-72 overflow-y-auto rounded-lg border border-white/10 bg-slate-950/50">
+              <div className="max-h-72 overflow-y-auto rounded-lg border border-[#C9A84C22] bg-[#0A0A0A]/55">
                 {playlist.defaultSongs.map((song, index) => renderSong(song, index, { defaultSong: true }))}
               </div>
             </section>
@@ -88,11 +88,11 @@ const PlaylistDisplay = ({ playlist, currentSong }) => {
 
           {playedSongs.length > 0 && (
             <section>
-              <details className="rounded-lg border border-white/10 bg-slate-950/50">
+              <details className="rounded-lg border border-[#C9A84C22] bg-[#0A0A0A]/55">
                 <summary className="cursor-pointer px-4 py-3 text-sm font-bold text-slate-300">
                   Played requests ({playedSongs.length})
                 </summary>
-                <div className="border-t border-white/10 bg-slate-950/40">
+                <div className="border-t border-[#C9A84C22] bg-[#0A0A0A]/45">
                   {playedSongs.map((song, index) => renderSong(song, index))}
                 </div>
               </details>

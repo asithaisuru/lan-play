@@ -68,7 +68,7 @@ app.use(express.json());
 
 // Routes
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'LAN Play Server is running' });
+  res.json({ status: 'Waveio LAN Server is running' });
 });
 
 // Network info endpoint
@@ -100,7 +100,7 @@ function getLocalIP() {
 const localIP = getLocalIP();
 
 server.listen(PORT, HOST, () => {
-  console.log(`LAN Play Server running on port ${PORT}`);
+  console.log(`Waveio LAN Server running on port ${PORT}`);
   console.log(`Local access: http://localhost:${PORT}`);
   console.log(`Network access: http://${localIP}:${PORT}`);
 });
