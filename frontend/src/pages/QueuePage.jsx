@@ -25,6 +25,7 @@ const QueuePage = () => {
   const [hasEverConnected, setHasEverConnected] = useState(false);
   const [activeAd, setActiveAd] = useState(null);
   const [sessionEnded, setSessionEnded] = useState(null);
+  const [roomError, setRoomError] = useState(null);
   const { socket, isConnected } = useSocket(SOCKET_URL, Boolean(clientId && username));
   const {
     playlist,
@@ -65,15 +66,25 @@ const QueuePage = () => {
     const handleSessionEnded = (data) => {
       setSessionEnded(data);
     };
+    const handleRoomError = (data) => {
+      if (['QUEUE_LIMIT_REACHED', 'GUEST_LIMIT_REACHED'].includes(data?.code)) {
+        setRoomError({
+          code: data.code,
+          message: data.message || 'The room has reached a free plan limit.'
+        });
+      }
+    };
 
     socket.on('ad-start', handleAdStart);
     socket.on('ad-end', handleAdEnd);
     socket.on('session-ended', handleSessionEnded);
+    socket.on('error', handleRoomError);
 
     return () => {
       socket.off('ad-start', handleAdStart);
       socket.off('ad-end', handleAdEnd);
       socket.off('session-ended', handleSessionEnded);
+      socket.off('error', handleRoomError);
     };
   }, [socket]);
 
@@ -131,6 +142,48 @@ const QueuePage = () => {
           </div>
         </div>
 
+        {roomError?.code === 'QUEUE_LIMIT_REACHED' && (
+          <div className="mb-4 flex flex-col gap-3 rounded-xl border border-[#C9A84C33] bg-[#1A1810] p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-semibold text-[#F5F5F5]">
+                Queue limit reached
+              </p>
+              <p className="mt-1 text-sm text-[#888880]">
+                {roomError.message}
+              </p>
+            </div>
+            <div className="flex flex-shrink-0 items-center gap-2">
+              <a
+                href="/pricing"
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-full bg-[#C9A84C] px-4 py-2 text-sm font-bold text-[#0A0A0A] transition hover:bg-[#F0C040] whitespace-nowrap"
+              >
+                Upgrade ↗
+              </a>
+              <button
+                type="button"
+                onClick={() => setRoomError(null)}
+                className="rounded-full p-2 text-[#888880] transition hover:text-[#F5F5F5]"
+                aria-label="Dismiss"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
+        {roomError?.code === 'GUEST_LIMIT_REACHED' && (
+          <div className="mb-4 rounded-xl border border-rose-400/25 bg-rose-400/10 p-4 text-center">
+            <p className="font-semibold text-rose-100">
+              This room is full
+            </p>
+            <p className="mt-1 text-sm text-rose-200/70">
+              {roomError.message}
+            </p>
+          </div>
+        )}
+
         {!hasEverConnected && !isConnected ? (
           <Spinner label="Connecting to room" />
         ) : (
@@ -156,6 +209,7 @@ const QueuePage = () => {
                   playlist={playlist}
                   clientId={clientId}
                   isAudioDevice={isAudioDevice}
+                  tier={playlist?.tier}
                 />
               )}
             </div>

@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { useNavigate } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
@@ -12,34 +11,57 @@ const tiers = [
     key: 'free',
     name: 'Free',
     price: '$0/month',
-    features: ['Shared queue', 'Host controls', 'Basic room links'],
-    button: null
+    description: 'A simple shared queue for small rooms.',
+    features: [
+      'Max 5 guests per room',
+      'Max 10 songs in queue',
+      '1 hour queue duration limit',
+      '2 hour session limit',
+      'Ads between songs',
+      'YouTube only',
+      '1 active room'
+    ]
   },
   {
     key: 'pro',
     name: 'Pro',
     price: '$9.99/month',
-    features: ['Unlimited guests', 'Spotify support', 'No ads', 'Host dashboard'],
-    button: 'Get Pro'
+    description: 'Built for venues and regular hosts.',
+    featured: true,
+    features: [
+      'Unlimited guests (free: 5 guests)',
+      'Unlimited queue (free: 10 songs, 1hr)',
+      'No ads ever',
+      'Spotify Premium integration',
+      'Custom branding for your business',
+      'Default playlist — auto DJ mode',
+      'Up to 3 active rooms',
+      'Full host controls'
+    ]
   },
   {
     key: 'event',
     name: 'Event',
     price: '$4.99/event',
-    features: ['One event room', 'Guest queue', 'Host controls', 'Event-ready sharing'],
-    button: 'Get Event'
+    description: 'One-time access for a single event.',
+    features: [
+      'Everything in Pro',
+      'Single session only',
+      'Pay once per event',
+      'Perfect for weddings and one-off events',
+      'No monthly commitment'
+    ]
   }
 ];
 
 const PricingPage = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [error, setError] = useState('');
   const [loadingTier, setLoadingTier] = useState('');
 
   const startCheckout = async (tier) => {
     if (!user) {
-      navigate('/login');
+      window.location.href = '/login';
       return;
     }
 
@@ -57,6 +79,9 @@ const PricingPage = () => {
     }
   };
 
+  const handleProCheckout = () => startCheckout('pro');
+  const handleEventCheckout = () => startCheckout('event');
+
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-[#F5F5F5]">
       <Helmet>
@@ -67,6 +92,9 @@ const PricingPage = () => {
         <div className="text-center">
           <p className="eyebrow">Pricing</p>
           <h1 className="mt-3 text-4xl font-semibold">Choose your Waveio plan</h1>
+          <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[#888880]">
+            Upgrade links open in a separate tab from your live room, and checkout redirects securely through Stripe.
+          </p>
         </div>
 
         {error && (
@@ -77,10 +105,29 @@ const PricingPage = () => {
 
         <div className="mt-10 grid gap-5 lg:grid-cols-3">
           {tiers.map((tier) => (
-            <section key={tier.key} className="flex rounded-lg border border-[#C9A84C22] bg-[#141414] p-6">
+            <section
+              key={tier.key}
+              className={`flex rounded-lg border p-6 ${
+                tier.featured
+                  ? 'border-[#C9A84C66] bg-[#1A1810]'
+                  : 'border-[#C9A84C22] bg-[#141414]'
+              }`}
+            >
               <div className="flex w-full flex-col">
-                <h2 className="text-2xl font-semibold">{tier.name}</h2>
-                <p className="mt-2 text-3xl font-semibold text-[#C9A84C]">{tier.price}</p>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-2xl font-semibold">{tier.name}</h2>
+                    <p className="mt-2 text-3xl font-semibold text-[#C9A84C]">{tier.price}</p>
+                  </div>
+                  {tier.featured && (
+                    <span className="rounded-full border border-[#C9A84C55] bg-[#C9A84C18] px-3 py-1 text-xs font-bold uppercase text-[#C9A84C]">
+                      Best value
+                    </span>
+                  )}
+                </div>
+                <p className="mt-3 text-sm leading-6 text-[#888880]">
+                  {tier.description}
+                </p>
                 <ul className="mt-6 flex-1 space-y-3 text-sm text-[#D0D0C8]">
                   {tier.features.map((feature) => (
                     <li key={feature} className="flex gap-2">
@@ -89,19 +136,36 @@ const PricingPage = () => {
                     </li>
                   ))}
                 </ul>
-                {tier.button ? (
+
+                {tier.key === 'free' && (
+                  <a
+                    href="/login"
+                    className="btn btn-secondary mt-8 w-full text-center"
+                  >
+                    Get started free
+                  </a>
+                )}
+
+                {tier.key === 'pro' && (
                   <button
                     type="button"
-                    onClick={() => startCheckout(tier.key)}
-                    disabled={loadingTier === tier.key}
+                    onClick={handleProCheckout}
+                    disabled={loadingTier === 'pro'}
                     className="btn btn-primary mt-8 w-full"
                   >
-                    {loadingTier === tier.key ? 'Starting...' : tier.button}
+                    {loadingTier === 'pro' ? 'Starting...' : 'Get Pro — $9.99/mo'}
                   </button>
-                ) : (
-                  <div className="mt-8 rounded-lg border border-[#C9A84C22] px-4 py-2 text-center text-sm text-[#888880]">
-                    Current starter plan
-                  </div>
+                )}
+
+                {tier.key === 'event' && (
+                  <button
+                    type="button"
+                    onClick={handleEventCheckout}
+                    disabled={loadingTier === 'event'}
+                    className="btn btn-primary mt-8 w-full"
+                  >
+                    {loadingTier === 'event' ? 'Starting...' : 'Get Event — $4.99/event'}
+                  </button>
                 )}
               </div>
             </section>

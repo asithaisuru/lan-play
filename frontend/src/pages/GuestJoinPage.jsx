@@ -35,6 +35,7 @@ const GuestJoinPage = () => {
   const [username, setUsername] = useState(sessionStorage.getItem(`waveio_username_${roomCode}`) || '');
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState('');
+  const [joinError, setJoinError] = useState(null);
 
   const roomName = useMemo(() => (
     getField(roomInfo, 'name', 'playlist_name', `Room ${roomCode}`)
@@ -83,12 +84,14 @@ const GuestJoinPage = () => {
     event.preventDefault();
     const safeUsername = username.trim();
     if (safeUsername.length < 3 || safeUsername.length > 20) {
+      setJoinError(null);
       setError('Username must be 3 to 20 characters.');
       return;
     }
 
     setJoining(true);
     setError('');
+    setJoinError(null);
     const clientId = getOrCreateClientId();
     sessionStorage.setItem('waveio_username_' + roomCode, safeUsername);
     sessionStorage.setItem('waveio_client_id', clientId);
@@ -116,12 +119,18 @@ const GuestJoinPage = () => {
     socket.on('error', (socketError) => {
       cleanup();
       setJoining(false);
-      setError(socketError?.message || 'Could not join room.');
+      const message = socketError?.message || 'Could not join room.';
+      setJoinError({
+        code: socketError?.code,
+        message
+      });
+      setError(socketError?.code === 'GUEST_LIMIT_REACHED' ? '' : message);
     });
 
     socket.on('connect_error', () => {
       cleanup();
       setJoining(false);
+      setJoinError(null);
       setError('Could not connect to the room server.');
     });
   };
@@ -202,6 +211,16 @@ const GuestJoinPage = () => {
                 placeholder="Your name"
                 required
               />
+              {joinError?.code === 'GUEST_LIMIT_REACHED' && (
+                <div className="mt-5 rounded-xl border border-rose-400/25 bg-rose-400/10 p-5 text-center">
+                  <p className="text-2xl font-black text-[#F5F5F5]">
+                    Room is full
+                  </p>
+                  <p className="mt-2 text-sm text-rose-200/80">
+                    This room has reached its guest limit. Ask the host to upgrade to Pro for unlimited guests.
+                  </p>
+                </div>
+              )}
               {error && <p className="mt-3 text-sm text-rose-200">{error}</p>}
               <button
                 type="submit"

@@ -14,6 +14,8 @@ const SessionEndedOverlay = ({ message }) => (
       <div className="mt-8 flex flex-col gap-3">
         <Link
           to="/pricing"
+          target="_blank"
+          rel="noreferrer"
           className="rounded-full bg-[#C9A84C] px-8 py-4 font-bold text-[#0A0A0A] transition hover:bg-[#F0C040]"
         >
           Upgrade to Pro

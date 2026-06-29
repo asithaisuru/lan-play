@@ -292,6 +292,7 @@ const HostPage = () => {
                 playlist={playlist}
                 clientId={clientId}
                 isAudioDevice={isAudioDevice}
+                tier={user?.tier || playlist?.tier || 'free'}
               />
               <UserAddSong socket={socket} username={username} />
             </div>

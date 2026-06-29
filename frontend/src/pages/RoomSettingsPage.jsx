@@ -116,17 +116,50 @@ const RoomSettingsPage = () => {
         )}
 
         {!canUseBranding ? (
-          <section className="mt-8 rounded-xl border border-[#C9A84C22] bg-[#1A1810] p-5">
-            <p className="font-semibold text-[#C9A84C]">
-              Custom branding - Pro feature
-            </p>
-            <p className="mt-2 text-sm text-[#888880]">
-              Add your logo, business name, and welcome message to the guest join page.
-              Upgrade to Pro to unlock.
-            </p>
-            <Link to="/pricing" className="btn btn-primary mt-4 inline-flex">
-              Upgrade to Pro
-            </Link>
+          <section className="mt-8 rounded-xl border border-[#C9A84C33] bg-[#1A1810] p-5">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex-shrink-0 rounded-full border border-[#C9A84C44] bg-[#C9A84C18] p-2">
+                <span className="text-lg">🎨</span>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-bold text-[#F5F5F5]">
+                  Custom Branding — Pro Feature
+                </p>
+                <p className="mt-1 text-sm leading-6 text-[#888880]">
+                  Put your bar, restaurant, or business brand on the guest join page. Guests see your logo and name — not Waveio's.
+                </p>
+                <ul className="mt-3 space-y-1 text-sm text-[#888880]">
+                  <li className="flex items-center gap-2">
+                    <span className="text-[#C9A84C]">✓</span>
+                    Your logo on the guest join page
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-[#C9A84C]">✓</span>
+                    Custom business name and welcome message
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-[#C9A84C]">✓</span>
+                    Custom accent color to match your brand
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-[#C9A84C]">✓</span>
+                    Perfect for bars, restaurants, wedding DJs, offices
+                  </li>
+                </ul>
+                <a
+                  href="/pricing"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#C9A84C] px-5 py-2 text-sm font-bold text-[#0A0A0A] transition hover:bg-[#F0C040]"
+                >
+                  Upgrade to Pro
+                  <span aria-hidden="true">↗</span>
+                </a>
+                <p className="mt-2 text-xs text-[#888880]">
+                  Opens in a new tab — your room stays active
+                </p>
+              </div>
+            </div>
           </section>
         ) : (
           <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">

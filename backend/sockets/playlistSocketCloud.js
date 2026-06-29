@@ -419,7 +419,7 @@ export const initializePlaylistSocket = (io) => {
         const queueTier = roomForQueue?.host_tier || roomForQueue?.tier || 'free';
         const withinQueueLimit = await checkQueueLimit(socket.roomCode, queueTier);
         if (!withinQueueLimit) {
-          const message = 'Queue is full (30 songs on free tier). The host needs to upgrade to Pro for unlimited queue.';
+          const message = 'Queue is full (10 songs on free tier). The host needs to upgrade to Pro for unlimited queue.';
           socket.emit('error', {
             message,
             code: 'QUEUE_LIMIT_REACHED'

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import WaveioLogo from '../ui/WaveioLogo';
 
 const AdOverlay = ({
@@ -85,12 +84,14 @@ const AdOverlay = ({
             {timeLeft}s
           </p>
         </div>
-        <Link
-          to="/pricing"
-          className="mt-6 inline-block text-xs text-[#888880] transition hover:text-[#C9A84C]"
+        <a
+          href="/pricing"
+          target="_blank"
+          rel="noreferrer"
+          className="mt-6 inline-block text-xs text-[#888880] underline transition hover:text-[#C9A84C]"
         >
-          Remove ads with Pro
-        </Link>
+          Remove ads — upgrade to Pro ↗
+        </a>
       </div>
     </div>
   );

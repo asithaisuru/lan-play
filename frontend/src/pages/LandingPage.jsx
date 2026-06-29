@@ -53,7 +53,7 @@ const pricingPlans = [
   {
     name: 'Free',
     price: '$0/month',
-    features: ['YouTube player', 'Up to 10 guests', '2 hour sessions', '30 song queue'],
+    features: ['YouTube player', 'Up to 5 guests', '2 hour sessions', '10 song queue'],
     cta: 'Get started',
     to: '/login',
     featured: false
@@ -62,7 +62,7 @@ const pricingPlans = [
     name: 'Pro',
     price: '$9.99/month',
     badge: 'Most Popular',
-    features: ['Spotify Premium linked', 'Unlimited guests', 'Unlimited sessions', 'No ads', 'Custom branding'],
+    features: ['Spotify Premium linked', 'Unlimited guests', 'Unlimited sessions', 'No ads', 'Custom branding', 'Default playlist'],
     cta: 'Get Pro',
     to: '/pricing',
     featured: true
@@ -244,6 +244,8 @@ const LandingPage = () => (
                   </ul>
                   <Link
                     to={plan.to}
+                    target={plan.to === '/pricing' ? '_blank' : undefined}
+                    rel={plan.to === '/pricing' ? 'noreferrer' : undefined}
                     className={`mt-8 inline-flex justify-center rounded-full px-6 py-3 text-sm font-bold transition ${
                       plan.featured
                         ? 'bg-[#C9A84C] text-[#0A0A0A] hover:bg-[#F0C040]'

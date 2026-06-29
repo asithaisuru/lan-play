@@ -3,7 +3,7 @@ import { pool } from '../db/postgres.js';
 export const TIER_LIMITS = {
   free: {
     maxGuests: 5,
-    maxQueueSize: 30,
+    maxQueueSize: 10,
     maxSessionMinutes: 120,
     maxRooms: 1,
     spotify: false,

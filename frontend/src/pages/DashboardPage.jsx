@@ -100,19 +100,52 @@ const DashboardPage = () => {
         </div>
 
         {tier === 'free' && (
-          <div className="mt-4 rounded-xl border border-[#C9A84C33] bg-[#1A1810] p-4">
+          <div className="mt-4 rounded-xl border border-[#C9A84C33] bg-[#1A1810] p-5">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
-                <p className="font-semibold text-[#F5F5F5]">
-                  You're on the free plan
+                <p className="font-bold text-[#F5F5F5]">
+                  You are on the Free plan
                 </p>
                 <p className="mt-1 text-sm text-[#888880]">
-                  5 guests · 30 songs · 2 hour sessions · ads
+                  5 guests · 10 songs · 1 hour queue · ads
                 </p>
+                <div className="mt-3 flex flex-wrap gap-3 text-sm">
+                  <span className="flex items-center gap-1.5 text-[#888880]">
+                    <span className="text-[#C9A84C]">→</span>
+                    Pro: Unlimited guests
+                  </span>
+                  <span className="flex items-center gap-1.5 text-[#888880]">
+                    <span className="text-[#C9A84C]">→</span>
+                    No ads
+                  </span>
+                  <span className="flex items-center gap-1.5 text-[#888880]">
+                    <span className="text-[#C9A84C]">→</span>
+                    Spotify Premium
+                  </span>
+                  <span className="flex items-center gap-1.5 text-[#888880]">
+                    <span className="text-[#C9A84C]">→</span>
+                    Custom branding
+                  </span>
+                </div>
               </div>
-              <Link to="/pricing" className="btn btn-primary whitespace-nowrap">
-                Upgrade to Pro
-              </Link>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <a
+                  href="/pricing"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-[#C9A84C] px-6 py-3 font-bold text-[#0A0A0A] transition hover:bg-[#F0C040] whitespace-nowrap"
+                >
+                  Upgrade to Pro ↗
+                </a>
+                <a
+                  href="/pricing"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-[#C9A84C33] px-6 py-3 text-sm font-semibold text-[#888880] transition hover:border-[#C9A84C66] hover:text-[#F5F5F5] whitespace-nowrap"
+                >
+                  Pay per event $4.99 ↗
+                </a>
+              </div>
             </div>
           </div>
         )}
