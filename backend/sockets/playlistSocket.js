@@ -221,6 +221,7 @@ export const initializePlaylistSocket = (io) => {
         const roomCode = normalizeRoomCode(data?.roomCode);
         const username = normalizeUsername(data?.username);
         const clientId = normalizeClientId(data?.clientId);
+        const isPlayerDevice = Boolean(data?.isPlayerDevice);
 
         if (!roomCode || !username || !clientId) {
           socket.emit('error', { message: 'Room code, username, and client ID are required' });
@@ -229,16 +230,26 @@ export const initializePlaylistSocket = (io) => {
 
         let room = getRoom(roomCode);
         if (!room) {
+          if (isPlayerDevice) {
+            socket.emit('error', {
+              message: 'Room not found. Ask the host to create a room first.'
+            });
+            return;
+          }
+
           console.log(`Creating new room: ${roomCode}`);
           createRoom({ roomCode, ownerSocketId: socket.id, ownerClientId: clientId, username });
           room = getRoom(roomCode);
         }
 
         const existingState = getPlaylistState(roomCode);
-        const shouldBackfillOwner = !room.owner_client_id && room.owner_socket_id === socket.id;
-        const shouldBecomeHost = !existingState.users.length
-          || room.owner_client_id === clientId
-          || shouldBackfillOwner;
+        const shouldBackfillOwner = !isPlayerDevice && !room.owner_client_id && room.owner_socket_id === socket.id;
+        const shouldBecomeHost = !isPlayerDevice
+          && (
+            !existingState.users.length
+            || room.owner_client_id === clientId
+            || shouldBackfillOwner
+          );
 
         addOrUpdateRoomUser({ roomCode, socketId: socket.id, clientId, username, isHost: shouldBecomeHost });
         if (shouldBecomeHost) {

@@ -67,16 +67,6 @@ export const initializePlaylistSocket = (io) => {
     const isHost = playlist.ownerClientId === socket.clientId || playlist.ownerSocketId === socket.id;
     const isAudioDevice = playlist.audioClientId === socket.clientId || playlist.audioSocketId === socket.id;
 
-    console.log('requireAudioDevice check:', {
-      socketClientId: socket.clientId,
-      socketId: socket.id,
-      playlistAudioClientId: playlist.audioClientId,
-      playlistAudioSocketId: playlist.audioSocketId,
-      playlistOwnerClientId: playlist.ownerClientId,
-      isHost,
-      isAudioDevice
-    });
-
     if (!isHost && !isAudioDevice) {
       socket.emit('error', { message: 'Only the assigned audio device can advance playback' });
       return null;
@@ -260,10 +250,13 @@ export const initializePlaylistSocket = (io) => {
         }
 
         const existingState = await getPlaylistState(roomCode);
-        const shouldBackfillOwner = !room.owner_client_id && room.owner_socket_id === socket.id;
-        const shouldBecomeHost = !existingState.users.length
-          || room.owner_client_id === clientId
-          || shouldBackfillOwner;
+        const shouldBackfillOwner = !isPlayerDevice && !room.owner_client_id && room.owner_socket_id === socket.id;
+        const shouldBecomeHost = !isPlayerDevice
+          && (
+            !existingState.users.length
+            || room.owner_client_id === clientId
+            || shouldBackfillOwner
+          );
 
         await addOrUpdateRoomUser({ roomCode, socketId: socket.id, clientId, username, isHost: shouldBecomeHost });
         let audioDeviceAssignedOnJoin = false;

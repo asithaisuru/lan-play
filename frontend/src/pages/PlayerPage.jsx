@@ -26,25 +26,12 @@ const getOrCreateStoredClientId = (storage, key) => {
 };
 
 const getPlayerIdentity = ({ roomCode, user }) => {
-  if (user) {
-    return {
-      clientId: getOrCreateStoredClientId(localStorage, 'waveio_host_clientId'),
-      username: (user.name || user.email || 'Host').trim()
-    };
-  }
-
-  const guestClientId = sessionStorage.getItem('waveio_client_id');
-  const guestUsername = sessionStorage.getItem('waveio_username_' + roomCode);
-  if (guestClientId && guestUsername) {
-    return {
-      clientId: guestClientId,
-      username: guestUsername.trim()
-    };
-  }
-
+  const baseName = user
+    ? (user.name || user.email || 'Host').trim()
+    : 'Player';
   return {
     clientId: getOrCreateStoredClientId(localStorage, `waveio_player_clientId_${roomCode}`),
-    username: `Player ${roomCode}`
+    username: `${baseName} Speaker`
   };
 };
 
