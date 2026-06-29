@@ -56,14 +56,18 @@ export const getPlaylistState = async (roomCode) => {
   if (!room) return null;
 
   const { rows: songRows } = await pool.query(
-    `SELECT * FROM songs
+    `SELECT id, room_code, source, youtube_id, title, thumbnail, duration, "current_time",
+            added_by, message, position, played_at, added_at
+     FROM songs
      WHERE room_code = $1 AND source = 'queue'
      ORDER BY position ASC, added_at ASC`,
     [roomCode]
   );
 
   const { rows: defaultRows } = await pool.query(
-    `SELECT * FROM songs
+    `SELECT id, room_code, source, youtube_id, title, thumbnail, duration, "current_time",
+            added_by, message, position, played_at, added_at
+     FROM songs
      WHERE room_code = $1 AND source = 'default'
      ORDER BY position ASC, added_at ASC`,
     [roomCode]
@@ -77,7 +81,9 @@ export const getPlaylistState = async (roomCode) => {
   let currentSong = null;
   if (room.current_song_id) {
     const { rows } = await pool.query(
-      'SELECT * FROM songs WHERE id = $1::uuid',
+      `SELECT id, room_code, source, youtube_id, title, thumbnail, duration, "current_time",
+              added_by, message, position, played_at, added_at
+       FROM songs WHERE id = $1::uuid`,
       [room.current_song_id]
     );
     currentSong = mapSong(rows[0] || null);
@@ -251,7 +257,12 @@ export const addSong = async ({ roomCode, source, youtubeId, title, thumbnail, d
 
   await touchRoom(roomCode);
 
-  const { rows } = await pool.query('SELECT * FROM songs WHERE id = $1', [id]);
+  const { rows } = await pool.query(
+    `SELECT id, room_code, source, youtube_id, title, thumbnail, duration, "current_time",
+            added_by, message, position, played_at, added_at
+     FROM songs WHERE id = $1::uuid`,
+    [id]
+  );
   return mapSong(rows[0]);
 };
 
@@ -366,14 +377,18 @@ export const setRoomVolume = async (roomCode, volume) => {
 
 export const getNextSong = async ({ roomCode, currentSongId, currentSource }) => {
   const { rows: queueSongs } = await pool.query(
-    `SELECT * FROM songs
+    `SELECT id, room_code, source, youtube_id, title, thumbnail, duration, "current_time",
+            added_by, message, position, played_at, added_at
+     FROM songs
      WHERE room_code = $1 AND source = 'queue' AND played_at IS NULL
      ORDER BY position ASC, added_at ASC`,
     [roomCode]
   );
 
   const { rows: defaultSongs } = await pool.query(
-    `SELECT * FROM songs
+    `SELECT id, room_code, source, youtube_id, title, thumbnail, duration, "current_time",
+            added_by, message, position, played_at, added_at
+     FROM songs
      WHERE room_code = $1 AND source = 'default'
      ORDER BY position ASC, added_at ASC`,
     [roomCode]
@@ -412,7 +427,9 @@ export const getNextSong = async ({ roomCode, currentSongId, currentSource }) =>
 
 export const getFirstQueueSong = async (roomCode) => {
   const { rows } = await pool.query(
-    `SELECT * FROM songs
+    `SELECT id, room_code, source, youtube_id, title, thumbnail, duration, "current_time",
+            added_by, message, position, played_at, added_at
+     FROM songs
      WHERE room_code = $1 AND source = 'queue' AND played_at IS NULL
      ORDER BY position ASC, added_at ASC
      LIMIT 1`,
