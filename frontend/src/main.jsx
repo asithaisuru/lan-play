@@ -8,6 +8,7 @@ import ProtectedRoute from './components/layout/ProtectedRoute';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import DashboardPage from './pages/DashboardPage';
 import GuestJoinPage from './pages/GuestJoinPage';
+import HostPage from './pages/HostPage';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -33,6 +34,7 @@ createRoot(document.getElementById('root')).render(
               )}
             />
             <Route path="/room/:code" element={<GuestJoinPage />} />
+            <Route path="/room/:code/host" element={<HostPage />} />
             <Route path="/room/:code/queue" element={<QueuePage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
