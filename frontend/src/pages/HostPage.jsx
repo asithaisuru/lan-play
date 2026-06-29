@@ -94,13 +94,17 @@ const HostPage = () => {
   }, [loading, user]);
 
   useEffect(() => {
+    hasJoinedRef.current = false;
+    joinedRoomRef.current = '';
+  }, [roomCode, clientId]);
+
+  useEffect(() => {
     if (
       !socket ||
       !isConnected ||
       !clientId ||
       !username ||
       !user ||
-      !sessionStarted ||
       hasJoinedRef.current
     ) return;
 
@@ -108,14 +112,14 @@ const HostPage = () => {
     joinedRoomRef.current = roomCode;
 
     socket.emit('join-room', { roomCode, username, clientId });
-  }, [clientId, isConnected, roomCode, sessionStarted, socket, user, username]);
+  }, [clientId, isConnected, roomCode, socket, user, username]);
 
   // Handle socket reconnection without re-joining
   useEffect(() => {
     if (!socket) return undefined;
 
     const handleReconnect = () => {
-      if (sessionStarted && hasJoinedRef.current && joinedRoomRef.current) {
+      if (hasJoinedRef.current && joinedRoomRef.current) {
         socket.emit('join-room', {
           roomCode: joinedRoomRef.current,
           username,
@@ -126,7 +130,7 @@ const HostPage = () => {
 
     socket.on('connect', handleReconnect);
     return () => socket.off('connect', handleReconnect);
-  }, [socket, username, clientId, sessionStarted]);
+  }, [socket, username, clientId]);
 
   useEffect(() => {
     const timer = copyTimerRef.current;

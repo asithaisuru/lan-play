@@ -191,7 +191,7 @@ export const initializePlaylistSocket = (io) => {
         };
 
         if (allowHostGrace) {
-          const timeout = setTimeout(reassignHost, 8000);
+          const timeout = setTimeout(reassignHost, 15000);
           pendingHostReassignments.set(roomCode, timeout);
         } else {
           reassignHost();
@@ -243,6 +243,15 @@ export const initializePlaylistSocket = (io) => {
             pendingHostReassignments.delete(roomCode);
           }
           setRoomOwner(roomCode, socket.id, clientId);
+
+          const currentAudioClientId = room.audio_client_id;
+          const audioUserConnected = currentAudioClientId
+            ? getRoomUserByClientId(roomCode, currentAudioClientId)
+            : null;
+
+          if (!audioUserConnected || currentAudioClientId === clientId) {
+            setRoomAudioDevice(roomCode, socket.id, clientId);
+          }
         }
 
         if (!room.audio_client_id && !room.audio_socket_id) {
