@@ -8,10 +8,10 @@ import { useAuth } from '../context/AuthContext';
 import { usePlaylist } from '../hooks/usePlaylist';
 import { useSocket } from '../hooks/useSocket';
 
-const getSocketUrl = () => {
+const SOCKET_URL = (() => {
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
   return apiUrl.replace(/\/api\/?$/, '');
-};
+})();
 
 const createClientId = () => (
   window.crypto?.randomUUID
@@ -56,9 +56,11 @@ const PlayerPage = () => {
   const roomCode = code.toUpperCase();
   const { user, loading } = useAuth();
   const [identity, setIdentity] = useState({ clientId: '', username: '' });
-  const [audioActivated, setAudioActivated] = useState(false);
+  const [audioActivated, setAudioActivated] = useState(() => (
+    sessionStorage.getItem('waveio_audio_activated_' + code.toUpperCase()) === 'true'
+  ));
   const joinedRef = useRef(false);
-  const { socket, isConnected } = useSocket(getSocketUrl());
+  const { socket, isConnected } = useSocket(SOCKET_URL);
   const {
     playlist,
     currentSong,
@@ -85,13 +87,7 @@ const PlayerPage = () => {
 
   useEffect(() => {
     joinedRef.current = false;
-  }, [identity.clientId, roomCode]);
-
-  useEffect(() => {
-    if (!isConnected) {
-      joinedRef.current = false;
-    }
-  }, [isConnected]);
+  }, [socket]);
 
   useEffect(() => {
     if (!socket || !isConnected || !identity.clientId || !identity.username || joinedRef.current) return;
@@ -112,6 +108,7 @@ const PlayerPage = () => {
   };
 
   const handleActivateAudio = () => {
+    sessionStorage.setItem('waveio_audio_activated_' + roomCode, 'true');
     setAudioActivated(true);
   };
 

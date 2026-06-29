@@ -11,10 +11,10 @@ import UserAddSong from '../components/UserAddSong';
 import { useSocket } from '../hooks/useSocket';
 import { usePlaylist } from '../hooks/usePlaylist';
 
-const getSocketUrl = () => {
+const SOCKET_URL = (() => {
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
   return apiUrl.replace(/\/api\/?$/, '');
-};
+})();
 
 const QueuePage = () => {
   const { code = '' } = useParams();
@@ -22,7 +22,7 @@ const QueuePage = () => {
   const clientId = sessionStorage.getItem('waveio_client_id');
   const username = sessionStorage.getItem(`waveio_username_${roomCode}`);
   const joinedRef = useRef(false);
-  const { socket, isConnected } = useSocket(getSocketUrl());
+  const { socket, isConnected } = useSocket(SOCKET_URL);
   const {
     playlist,
     currentSong,
