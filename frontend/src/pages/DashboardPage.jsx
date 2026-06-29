@@ -121,6 +121,9 @@ const DashboardPage = () => {
                           <Link to={`/room/${code}`} className="mt-2 inline-flex text-xs font-semibold text-[#C9A84C] hover:text-[#F0C040]">
                             Open as Guest
                           </Link>
+                          <p className="mt-3 text-xs leading-5 text-[#D0D0C8]">
+                            Open Host Controls on this device, then open Player View on your speaker device.
+                          </p>
                         </div>
                         <div className="flex flex-wrap gap-2">
                           <Link

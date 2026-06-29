@@ -150,6 +150,28 @@ const HostPage = () => {
       </Helmet>
       <Header />
       <main className="mx-auto max-w-7xl px-4 py-8 md:px-6">
+        <div className="mb-6 rounded-lg border border-[#C9A84C55] bg-[#141414] p-5 shadow-lg shadow-black/20">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="eyebrow">Audio setup</p>
+              <h2 className="mt-1 text-xl font-black text-[#F5F5F5]">
+                Open the Player View on your speaker device
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-[#D0D0C8]">
+                After opening Player View, click "Activate Audio" on that device to start playback.
+              </p>
+            </div>
+            <Link
+              to={`/room/${roomCode}/player`}
+              target="_blank"
+              rel="noreferrer"
+              className="btn btn-primary w-full justify-center lg:w-auto"
+            >
+              Open Player View
+            </Link>
+          </div>
+        </div>
+
         <div className="mb-6 rounded-lg border border-[#C9A84C22] bg-[#141414] p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">

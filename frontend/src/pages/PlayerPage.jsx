@@ -1,11 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Link, useParams } from 'react-router-dom';
-import Header from '../components/layout/Header';
-import Footer from '../components/layout/Footer';
+import { Maximize2 } from 'lucide-react';
+import { useParams } from 'react-router-dom';
 import Spinner from '../components/ui/Spinner';
 import NowPlaying from '../components/NowPlaying';
-import PlaylistDisplay from '../components/PlaylistDisplay';
 import { useAuth } from '../context/AuthContext';
 import { usePlaylist } from '../hooks/usePlaylist';
 import { useSocket } from '../hooks/useSocket';
@@ -21,19 +19,19 @@ const createClientId = () => (
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`
 );
 
-const getOrCreateLocalId = (key) => {
-  const existingClientId = localStorage.getItem(key);
+const getOrCreateStoredClientId = (storage, key) => {
+  const existingClientId = storage.getItem(key);
   if (existingClientId) return existingClientId;
 
   const nextClientId = createClientId();
-  localStorage.setItem(key, nextClientId);
+  storage.setItem(key, nextClientId);
   return nextClientId;
 };
 
 const getPlayerIdentity = ({ roomCode, user }) => {
   if (user) {
     return {
-      clientId: getOrCreateLocalId('waveio_host_clientId'),
+      clientId: getOrCreateStoredClientId(localStorage, 'waveio_host_clientId'),
       username: (user.name || user.email || 'Host').trim()
     };
   }
@@ -43,18 +41,13 @@ const getPlayerIdentity = ({ roomCode, user }) => {
   if (guestClientId && guestUsername) {
     return {
       clientId: guestClientId,
-      username: guestUsername
+      username: guestUsername.trim()
     };
   }
 
-  const clientId = getOrCreateLocalId(`waveio_player_clientId_${roomCode}`);
-  const storedName = localStorage.getItem(`waveio_player_name_${roomCode}`);
-  const username = storedName || `Player ${roomCode}`;
-  localStorage.setItem(`waveio_player_name_${roomCode}`, username);
-
   return {
-    clientId,
-    username
+    clientId: getOrCreateStoredClientId(localStorage, `waveio_player_clientId_${roomCode}`),
+    username: `Player ${roomCode}`
   };
 };
 
@@ -63,6 +56,7 @@ const PlayerPage = () => {
   const roomCode = code.toUpperCase();
   const { user, loading } = useAuth();
   const [identity, setIdentity] = useState({ clientId: '', username: '' });
+  const [audioActivated, setAudioActivated] = useState(false);
   const joinedRef = useRef(false);
   const { socket, isConnected } = useSocket(getSocketUrl());
   const {
@@ -77,10 +71,12 @@ const PlayerPage = () => {
     playAnnouncement
   } = usePlaylist(socket, identity.clientId);
 
-  const playlistName = playlist?.name
+  const playlistName = useMemo(() => (
+    playlist?.name
     || playlist?.playlistName
     || playlist?.playlist_name
-    || 'Room playlist';
+    || 'Room playlist'
+  ), [playlist]);
 
   useEffect(() => {
     if (loading) return;
@@ -107,72 +103,114 @@ const PlayerPage = () => {
     joinedRef.current = true;
   }, [identity.clientId, identity.username, isConnected, roomCode, socket]);
 
+  const openFullscreen = async () => {
+    try {
+      await document.documentElement.requestFullscreen?.();
+    } catch {
+      // Browser may deny fullscreen; audio activation still works.
+    }
+  };
+
+  const handleActivateAudio = () => {
+    setAudioActivated(true);
+  };
+
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-[#F5F5F5]">
+    <div className="min-h-screen overflow-hidden bg-[#0A0A0A] text-[#F5F5F5]">
       <Helmet>
         <title>{roomCode} Player — Waveio</title>
       </Helmet>
-      <Header />
-      <main className="mx-auto max-w-7xl px-4 py-8 md:px-6">
-        <div className="mb-6 rounded-lg border border-[#C9A84C22] bg-[#141414] p-5">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="min-w-0">
-              <p className="eyebrow">Player view</p>
-              <div className="mt-2 flex flex-wrap items-center gap-3">
-                <h1 className="font-mono text-2xl font-semibold">{roomCode}</h1>
-                {isPlaying && (
-                  <span className="rounded-full border border-[#C9A84C55] bg-[#C9A84C18] px-3 py-1 text-xs font-bold uppercase text-[#C9A84C]">
-                    Live
-                  </span>
-                )}
-              </div>
-              <p className="mt-1 truncate text-sm text-[#888880]">{playlistName}</p>
+
+      <main className="flex min-h-screen flex-col px-4 py-4 sm:px-6">
+        <header className="flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[#C9A84C22] pb-4">
+          <div className="min-w-0">
+            <p className="eyebrow">Waveio Player View</p>
+            <div className="mt-1 flex flex-wrap items-center gap-3">
+              <h1 className="font-mono text-2xl font-black text-[#F5F5F5]">{roomCode}</h1>
+              {isPlaying && (
+                <span className="rounded-full border border-[#C9A84C55] bg-[#C9A84C18] px-3 py-1 text-xs font-bold uppercase text-[#C9A84C]">
+                  Live
+                </span>
+              )}
             </div>
-            <div className="flex flex-wrap gap-2">
-              <span className={isAudioDevice ? 'badge badge-green' : 'badge badge-blue'}>
-                {isAudioDevice ? 'Audio device' : 'Waiting for audio assignment'}
-              </span>
-              {isHost && <span className="badge badge-green">Host</span>}
-              <span className="badge badge-slate">{users.length} connected</span>
-              <Link to={`/room/${roomCode}`} className="btn btn-secondary px-3 py-2">
-                Guest link
-              </Link>
-            </div>
+            <p className="mt-1 truncate text-sm text-[#888880]">{playlistName}</p>
           </div>
-        </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={isAudioDevice ? 'badge badge-green' : 'badge badge-blue'}>
+              {isAudioDevice ? 'Assigned audio device' : 'Waiting for host assignment'}
+            </span>
+            <span className="badge badge-slate">{users.length} connected</span>
+            <button
+              type="button"
+              onClick={openFullscreen}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#C9A84C33] bg-[#141414] text-[#F5F5F5] transition hover:border-[#C9A84C66]"
+              title="Fullscreen"
+              aria-label="Fullscreen"
+            >
+              <Maximize2 size={18} />
+            </button>
+          </div>
+        </header>
 
         {loading || !identity.clientId || !isConnected ? (
-          <Spinner label="Connecting player view" />
-        ) : (
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
-            <div className="space-y-5">
-              {!isAudioDevice && (
-                <div className="rounded-lg border border-[#C9A84C22] bg-[#141414] p-5">
-                  <p className="font-semibold text-[#F5F5F5]">This device is connected as {identity.username}</p>
-                  <p className="mt-1 text-sm text-[#888880]">
-                    Ask the host to choose this device with the Use audio control.
-                  </p>
-                </div>
-              )}
-              <NowPlaying
-                currentSong={currentSong}
-                currentSource={currentSource}
-                isPlaying={isPlaying}
-                syncedCurrentTime={currentTime}
-                isHost={isHost}
-                isAudioDevice={isAudioDevice}
-                playAnnouncement={playAnnouncement}
-                playlist={playlist}
-                socket={socket}
-              />
-            </div>
-            <div className="xl:sticky xl:top-6 xl:self-start">
-              <PlaylistDisplay playlist={playlist} currentSong={currentSong} />
-            </div>
+          <div className="flex flex-1 items-center justify-center">
+            <Spinner label="Connecting player view" />
           </div>
+        ) : !audioActivated ? (
+          <section className="flex flex-1 items-center justify-center py-10 text-center">
+            <div className="mx-auto max-w-3xl rounded-lg border border-[#C9A84C44] bg-[#141414] px-6 py-10 shadow-2xl shadow-black/30 sm:px-10">
+              <p className="eyebrow">Speaker device setup</p>
+              <h2 className="mt-3 text-4xl font-black leading-tight text-white sm:text-6xl">
+                Click to activate audio
+              </h2>
+              <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-[#D0D0C8]">
+                Browser security requires one click before YouTube can play audio on this device.
+              </p>
+              <button
+                type="button"
+                onClick={handleActivateAudio}
+                className="mt-8 rounded-full bg-[#C9A84C] px-9 py-5 text-lg font-black text-[#0A0A0A] shadow-xl shadow-black/40 transition hover:bg-[#F0C040]"
+              >
+                Activate Audio
+              </button>
+              <div className="mt-8 rounded-lg border border-[#C9A84C22] bg-[#0A0A0A]/70 p-4">
+                <p className="text-sm font-semibold text-[#F5F5F5]">
+                  {currentSong ? currentSong.title : 'Waiting for the host to start playback'}
+                </p>
+                <p className="mt-1 text-xs text-[#888880]">
+                  Connected as {identity.username}. {isAudioDevice ? 'This device is assigned for audio.' : 'Ask the host to select this device with Use audio.'}
+                </p>
+              </div>
+            </div>
+          </section>
+        ) : (
+          <section className="flex min-h-0 flex-1 flex-col justify-center py-5">
+            {!isAudioDevice && (
+              <div className="mb-4 rounded-lg border border-[#C9A84C22] bg-[#141414] p-4 text-center">
+                <p className="font-semibold text-[#F5F5F5]">Audio is activated on this browser.</p>
+                <p className="mt-1 text-sm text-[#888880]">
+                  Ask the host to choose {identity.username} with the Use audio control.
+                </p>
+              </div>
+            )}
+            <NowPlaying
+              currentSong={currentSong}
+              currentSource={currentSource}
+              isPlaying={isPlaying}
+              syncedCurrentTime={currentTime}
+              isHost={isHost}
+              isAudioDevice={isAudioDevice}
+              playAnnouncement={playAnnouncement}
+              playlist={playlist}
+              socket={socket}
+              visiblePlayer
+              audioActivated={audioActivated}
+              onAudioActivated={handleActivateAudio}
+            />
+          </section>
         )}
       </main>
-      <Footer />
     </div>
   );
 };

@@ -43,9 +43,12 @@ const NowPlaying = ({
   isAudioDevice,
   playAnnouncement,
   playlist,
-  socket
+  socket,
+  visiblePlayer = false,
+  audioActivated = false,
+  onAudioActivated
 }) => {
-  const playerContainerRef = useRef(null);
+  const visiblePlayerHostRef = useRef(null);
   const playerRef = useRef(null);
   const playerReadyRef = useRef(false);
   const hasAnnouncedRef = useRef(false);
@@ -69,7 +72,10 @@ const NowPlaying = ({
   const [elapsedTime, setElapsedTime] = useState(syncedCurrentTime || 0);
   const [knownDuration, setKnownDuration] = useState(currentSong?.duration || 0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [audioReady, setAudioReady] = useState(false);
   const roomVolume = Math.max(0, Math.min(100, Number(playlist?.volume ?? 100)));
+  const effectiveAudioReady = !isAudioDevice || audioReady || audioActivated;
+  const canUseAudioPlayer = Boolean(isAudioDevice && effectiveAudioReady);
 
   const formatTime = (seconds) => {
     if (!Number.isFinite(seconds) || seconds <= 0) return '0:00';
@@ -164,6 +170,44 @@ const NowPlaying = ({
     )
   ), []);
 
+  const getPlayerMount = useCallback(() => {
+    if (visiblePlayer && visiblePlayerHostRef.current) {
+      let mount = visiblePlayerHostRef.current.querySelector('[data-waveio-youtube-mount="true"]');
+      if (!mount) {
+        mount = document.createElement('div');
+        mount.dataset.waveioYoutubeMount = 'true';
+        mount.style.width = '100%';
+        mount.style.height = '100%';
+        visiblePlayerHostRef.current.replaceChildren(mount);
+      }
+      return mount;
+    }
+
+    return ensureYouTubeMount();
+  }, [visiblePlayer]);
+
+  const handleActivateAudio = useCallback(() => {
+    setAudioReady(true);
+    onAudioActivated?.();
+
+    const activePlayer = playerRef.current;
+    if (!isReadyPlayer(activePlayer) || !currentSong) return;
+
+    try {
+      const targetTime = Number(syncedCurrentTime || 0);
+      if (targetTime > 0 && typeof activePlayer.seekTo === 'function') {
+        activePlayer.seekTo(targetTime, true);
+        setElapsedTime(targetTime);
+      }
+      activePlayer.setVolume?.(roomVolume);
+      if (isPlaying) {
+        activePlayer.playVideo();
+      }
+    } catch (error) {
+      console.warn('Audio activation play attempt failed:', error);
+    }
+  }, [currentSong, isPlaying, isReadyPlayer, onAudioActivated, roomVolume, syncedCurrentTime]);
+
   useEffect(() => {
     latestStateRef.current = {
       currentSong,
@@ -172,13 +216,10 @@ const NowPlaying = ({
       isAudioDevice,
       isPlaying,
       playlist,
-      socket
+      socket,
+      audioReady: effectiveAudioReady
     };
-  }, [currentSong, currentSource, isAudioDevice, isHost, isPlaying, playlist, socket]);
-
-  useEffect(() => {
-    playerContainerRef.current = ensureYouTubeMount();
-  }, []);
+  }, [currentSong, currentSource, effectiveAudioReady, isAudioDevice, isHost, isPlaying, playlist, socket]);
 
   // Load YouTube IFrame API
   useEffect(() => {
@@ -202,23 +243,26 @@ const NowPlaying = ({
 
     try {
       existingPlayer.stopVideo?.();
+      existingPlayer.destroy?.();
     } catch (error) {
       console.warn('YouTube player stop failed:', error);
     }
 
+    playerRef.current = null;
     playerSongIdRef.current = null;
     playerVideoIdRef.current = null;
     playerReadyRef.current = false;
     hasAnnouncedRef.current = false;
     clearTimeout(announcementTimerRef.current);
+    visiblePlayerHostRef.current?.replaceChildren();
     setPlayer(null);
     setIsPlayerReady(false);
   }, [clearFadeIntervals]);
 
   // Initialize a single YouTube player and reuse it for all song changes.
   const initializePlayer = useCallback(() => {
-    const mountNode = playerContainerRef.current || ensureYouTubeMount();
-    if (!currentSong || !isAudioDevice || !window.YT?.Player || !mountNode) return;
+    const mountNode = getPlayerMount();
+    if (!currentSong || !canUseAudioPlayer || !window.YT?.Player || !mountNode) return;
     if (playerRef.current) {
       if (isReadyPlayer(playerRef.current)) {
         setPlayer(playerRef.current);
@@ -228,12 +272,12 @@ const NowPlaying = ({
     }
 
     playerRef.current = new window.YT.Player(mountNode, {
-      height: '1',
-      width: '1',
+      height: visiblePlayer ? '360' : '1',
+      width: visiblePlayer ? '640' : '1',
       videoId: currentSong.youtubeId,
       playerVars: {
         'autoplay': 0,
-        'controls': 0,
+        'controls': visiblePlayer ? 1 : 0,
         'disablekb': 1,
         'fs': 0,
         'modestbranding': 1,
@@ -252,11 +296,22 @@ const NowPlaying = ({
           playerRef.current = event.target;
           playerReadyRef.current = true;
           setIsPlayerReady(true);
+          if (visiblePlayer) {
+            try {
+              const iframe = event.target.getIframe?.();
+              if (iframe) {
+                iframe.style.width = '100%';
+                iframe.style.height = '100%';
+              }
+            } catch (error) {
+              console.warn('Visible player sizing failed:', error);
+            }
+          }
           playerSongIdRef.current = activeSong?._id || null;
           playerVideoIdRef.current = activeSong?.youtubeId || null;
           const duration = event.target.getDuration?.() || activeSong?.duration || 0;
           setKnownDuration(duration);
-          if (latest.isPlaying && typeof event.target.playVideo === 'function') {
+          if (latest.audioReady && latest.isPlaying && typeof event.target.playVideo === 'function') {
             try {
               const resumeTime = Number(latest.playlist?.currentTime || 0);
               if (resumeTime > 0 && typeof event.target.seekTo === 'function') {
@@ -327,29 +382,29 @@ const NowPlaying = ({
 
     hasAnnouncedRef.current = false;
     setIsPlayerReady(false);
-  }, [currentSong, fadeVolume, isAudioDevice, isReadyPlayer, playAnnouncement, roomVolume]);
+  }, [canUseAudioPlayer, currentSong, fadeVolume, getPlayerMount, isReadyPlayer, playAnnouncement, roomVolume, visiblePlayer]);
 
   // Re-initialize player when song changes
   useEffect(() => {
-    if (isAudioDevice && isYouTubeReady) {
+    if (canUseAudioPlayer && isYouTubeReady) {
       initializePlayer();
     }
-  }, [currentSong, isAudioDevice, isYouTubeReady, initializePlayer]);
+  }, [canUseAudioPlayer, currentSong, isYouTubeReady, initializePlayer]);
 
   useEffect(() => {
-    if (!isAudioDevice) {
+    if (!canUseAudioPlayer) {
       stopHostPlayer();
     }
-  }, [isAudioDevice, stopHostPlayer]);
+  }, [canUseAudioPlayer, stopHostPlayer]);
 
   useEffect(() => {
-    if (isAudioDevice && player && !currentSong) {
+    if (canUseAudioPlayer && player && !currentSong) {
       stopHostPlayer();
     }
-  }, [currentSong, isAudioDevice, player, stopHostPlayer]);
+  }, [canUseAudioPlayer, currentSong, player, stopHostPlayer]);
 
   useEffect(() => {
-    if (!isAudioDevice || !isPlayerReady || !isReadyPlayer(player) || !currentSong) return;
+    if (!canUseAudioPlayer || !isPlayerReady || !isReadyPlayer(player) || !currentSong) return;
     if (playerSongIdRef.current === currentSong._id && playerVideoIdRef.current === currentSong.youtubeId) return;
 
     const switchToken = songSwitchTokenRef.current + 1;
@@ -382,17 +437,17 @@ const NowPlaying = ({
     };
 
     switchSong();
-  }, [currentSong, fadeVolume, isAudioDevice, isPlayerReady, isPlaying, isReadyPlayer, player, roomVolume, syncedCurrentTime]);
+  }, [canUseAudioPlayer, currentSong, fadeVolume, isPlayerReady, isPlaying, isReadyPlayer, player, roomVolume, syncedCurrentTime]);
 
   useEffect(() => {
-    if (!isAudioDevice || !isPlayerReady || !isReadyPlayer(player)) return;
+    if (!canUseAudioPlayer || !isPlayerReady || !isReadyPlayer(player)) return;
 
     try {
       player.setVolume?.(roomVolume);
     } catch (error) {
       console.warn('Player volume update failed:', error);
     }
-  }, [isAudioDevice, isPlayerReady, isReadyPlayer, player, roomVolume]);
+  }, [canUseAudioPlayer, isPlayerReady, isReadyPlayer, player, roomVolume]);
 
   useEffect(() => {
     setElapsedTime(syncedCurrentTime || 0);
@@ -426,7 +481,7 @@ const NowPlaying = ({
   }, [isFullscreen]);
 
   useEffect(() => {
-    if (!isAudioDevice || !isPlayerReady || !isReadyPlayer(player) || !currentSong) return;
+    if (!canUseAudioPlayer || !isPlayerReady || !isReadyPlayer(player) || !currentSong) return;
 
     let tick = 0;
     const interval = setInterval(() => {
@@ -445,7 +500,7 @@ const NowPlaying = ({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [currentSong, isAudioDevice, isPlayerReady, isReadyPlayer, player, socket]);
+  }, [canUseAudioPlayer, currentSong, isPlayerReady, isReadyPlayer, player, socket]);
 
   useEffect(() => {
     if (isAudioDevice || !isPlaying || !currentSong) return;
@@ -465,7 +520,7 @@ const NowPlaying = ({
 
   // Handle play/pause controls (host only)
   useEffect(() => {
-    if (isPlayerReady && isReadyPlayer(player) && isAudioDevice) {
+    if (isPlayerReady && isReadyPlayer(player) && canUseAudioPlayer) {
       try {
         if (isPlaying) {
           const targetTime = Number(syncedCurrentTime || 0);
@@ -481,7 +536,7 @@ const NowPlaying = ({
         console.error('Player control error:', error);
       }
     }
-  }, [isPlaying, isPlayerReady, player, isAudioDevice, isReadyPlayer, syncedCurrentTime]);
+  }, [isPlaying, isPlayerReady, player, canUseAudioPlayer, isReadyPlayer, syncedCurrentTime]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -492,6 +547,17 @@ const NowPlaying = ({
     };
   }, [clearFadeIntervals, stopHostPlayer]);
 
+  const needsAudioActivation = Boolean(isAudioDevice && !effectiveAudioReady);
+  const renderActivationButton = (label = 'Tap to activate audio') => (
+    <button
+      type="button"
+      onClick={handleActivateAudio}
+      className="inline-flex items-center justify-center rounded-full bg-[#C9A84C] px-7 py-4 text-base font-black text-[#0A0A0A] shadow-xl shadow-black/30 transition hover:bg-[#F0C040]"
+    >
+      {label}
+    </button>
+  );
+
   if (!currentSong) {
     return (
       <div className="card">
@@ -501,6 +567,12 @@ const NowPlaying = ({
           </div>
           <h3 className="text-lg font-bold text-white">Nothing playing yet</h3>
           <p className="mt-1 max-w-sm text-sm text-slate-400">Add a request or start the default playlist when you are ready.</p>
+          {needsAudioActivation && (
+            <div className="mt-6">
+              {renderActivationButton()}
+              <p className="mt-3 text-xs text-[#888880]">This unlocks browser audio for this device.</p>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -643,7 +715,7 @@ const NowPlaying = ({
 
   return (
     <>
-      <div className="card overflow-hidden p-0">
+      <div className="card relative overflow-hidden p-0">
         <div className="bg-black/45 p-5 text-white">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -677,11 +749,18 @@ const NowPlaying = ({
           </div>
 
           <div className="grid gap-5 md:grid-cols-[180px_minmax(0,1fr)]">
-            <img 
-              src={currentSong.thumbnail} 
-              alt={currentSong.title}
-              className="aspect-video w-full rounded-lg object-cover shadow-lg shadow-black/20"
-            />
+            {visiblePlayer && canUseAudioPlayer ? (
+              <div
+                ref={visiblePlayerHostRef}
+                className="aspect-video w-full overflow-hidden rounded-lg border border-[#C9A84C22] bg-black shadow-lg shadow-black/20 md:min-h-[180px]"
+              />
+            ) : (
+              <img
+                src={currentSong.thumbnail}
+                alt={currentSong.title}
+                className="aspect-video w-full rounded-lg object-cover shadow-lg shadow-black/20"
+              />
+            )}
             
             <div className="min-w-0 self-center">
               <h3 className="line-clamp-2 text-2xl font-black leading-tight text-white md:text-3xl">
@@ -750,6 +829,21 @@ const NowPlaying = ({
           <div className="m-5 rounded-lg border border-white/10 bg-white/5 p-4">
             <p className="font-semibold text-white">Audio player ready</p>
             <p className="mt-1 text-sm text-slate-400">This device is playing room audio.</p>
+          </div>
+        )}
+
+        {needsAudioActivation && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#0A0A0A]/90 p-6 text-center backdrop-blur-sm">
+            <div className="max-w-md">
+              <p className="eyebrow">Audio device</p>
+              <h3 className="mt-2 text-2xl font-black text-white">Activate audio on this device</h3>
+              <p className="mt-2 text-sm leading-6 text-[#D0D0C8]">
+                Browsers require one tap before YouTube audio can play.
+              </p>
+              <div className="mt-6">
+                {renderActivationButton()}
+              </div>
+            </div>
           </div>
         )}
       </div>
