@@ -52,6 +52,7 @@ if (hasGoogleConfig) {
 
       return done(null, rows[0]);
     } catch (error) {
+      console.error('GoogleStrategy DB error:', error.message, error.stack);
       return done(error);
     }
   }));
@@ -90,7 +91,12 @@ router.get('/google/callback', authLimiter, (req, res, next) => {
   }
 
   return passport.authenticate('google', { session: false }, (error, user) => {
-    if (error || !user) {
+    if (error) {
+      console.error('Google OAuth callback error:', error.message, error.stack);
+      return res.redirect(`${clientUrl}/login?error=auth_failed`);
+    }
+    if (!user) {
+      console.error('Google OAuth callback: no user returned');
       return res.redirect(`${clientUrl}/login?error=auth_failed`);
     }
 
