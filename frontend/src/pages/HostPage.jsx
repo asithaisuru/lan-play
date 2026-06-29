@@ -53,6 +53,7 @@ const HostPage = () => {
   const { user, loading } = useAuth();
   const [clientId, setClientId] = useState(() => localStorage.getItem('waveio_host_clientId'));
   const [sessionStarted, setSessionStarted] = useState(false);
+  const [hasEverConnected, setHasEverConnected] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
   const copyTimerRef = useRef(null);
   const hasJoinedRef = useRef(false);
@@ -80,6 +81,12 @@ const HostPage = () => {
     || 'Room playlist';
 
   const guestInviteLink = `${window.location.origin}/room/${roomCode}`;
+
+  useEffect(() => {
+    if (isConnected) {
+      setHasEverConnected(true);
+    }
+  }, [isConnected]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -281,7 +288,7 @@ const HostPage = () => {
           </div>
         </div>
 
-        {!clientId || !isConnected ? (
+        {!clientId || (!hasEverConnected && !isConnected) ? (
           <Spinner label="Connecting to host controls" />
         ) : (
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
