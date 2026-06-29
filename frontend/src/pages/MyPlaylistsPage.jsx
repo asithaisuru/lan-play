@@ -124,6 +124,9 @@ const MyPlaylistsPage = () => {
         <Link to="/dashboard" className="inline-flex items-center gap-2 text-sm font-semibold text-[#C9A84C] hover:text-[#F0C040]">
           <ArrowLeft size={16} /> Back to dashboard
         </Link>
+        <Link to="/playlists" className="mt-3 inline-flex text-sm font-semibold text-[#C9A84C] hover:text-[#F0C040]">
+          Browse community playlists →
+        </Link>
         <div className="mt-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="eyebrow">Library manager</p>

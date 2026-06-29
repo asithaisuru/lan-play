@@ -20,6 +20,16 @@ const DashboardPage = () => {
   const [copiedRoomCode, setCopiedRoomCode] = useState('');
 
   const tier = user?.tier || 'free';
+  const tierBadgeClass = tier === 'pro'
+    ? 'border-[#C9A84C] bg-[#C9A84C18] text-[#C9A84C]'
+    : tier === 'event'
+      ? 'border-purple-400/40 bg-purple-400/10 text-purple-200'
+      : 'border-[#888880]/30 bg-[#88888015] text-[#888880]';
+  const tierLabel = tier === 'pro'
+    ? '⭐ Pro plan'
+    : tier === 'event'
+      ? '🎉 Event plan'
+      : 'Free plan';
 
   const loadRooms = useCallback(async () => {
     setLoadingRooms(true);
@@ -48,7 +58,7 @@ const DashboardPage = () => {
       setRoomName('');
       await loadRooms();
     } catch (createError) {
-      setError(createError.response?.data?.message || 'Could not create room.');
+      setError(createError.response?.data?.error || createError.response?.data?.message || 'Could not create room.');
     }
   };
 
@@ -60,7 +70,7 @@ const DashboardPage = () => {
       await api.delete(`/rooms/${code}`);
       await loadRooms();
     } catch (endError) {
-      setError(endError.response?.data?.message || 'Could not end room.');
+      setError(endError.response?.data?.error || endError.response?.data?.message || 'Could not end room.');
     }
   };
 
@@ -83,15 +93,26 @@ const DashboardPage = () => {
           <div>
             <p className="eyebrow">Dashboard</p>
             <h1 className="mt-2 text-3xl font-semibold">Welcome back, {user?.name || 'Host'}</h1>
+            <div className={`mt-3 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold ${tierBadgeClass}`}>
+              {tierLabel}
+            </div>
           </div>
-          <span className="badge badge-green w-fit capitalize">{tier}</span>
         </div>
 
         {tier === 'free' && (
-          <div className="mt-8 rounded-lg border border-[#C9A84C33] bg-[#1A1810] p-5">
+          <div className="mt-4 rounded-xl border border-[#C9A84C33] bg-[#1A1810] p-4">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <p className="text-sm text-[#D0D0C8]">Upgrade to Pro for unlimited guests, Spotify, and no ads</p>
-              <Link to="/pricing" className="btn btn-primary w-fit">View pricing</Link>
+              <div>
+                <p className="font-semibold text-[#F5F5F5]">
+                  You're on the free plan
+                </p>
+                <p className="mt-1 text-sm text-[#888880]">
+                  5 guests · 30 songs · 2 hour sessions · ads
+                </p>
+              </div>
+              <Link to="/pricing" className="btn btn-primary whitespace-nowrap">
+                Upgrade to Pro
+              </Link>
             </div>
           </div>
         )}
@@ -134,6 +155,9 @@ const DashboardPage = () => {
                           </Link>
                           <Link to={`/room/${code}/player`} className="btn btn-secondary px-3 py-2">
                             Player View
+                          </Link>
+                          <Link to={`/room/${code}/settings`} className="btn btn-secondary px-3 py-2">
+                            Settings
                           </Link>
                           <button type="button" onClick={() => copyGuestLink(room)} className="btn btn-secondary px-3 py-2" title="Copy guest link">
                             <Copy size={16} />

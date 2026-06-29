@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Clock, ListMusic, Music, Search, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -58,6 +58,7 @@ const AddToRoomModal = ({ playlist, onClose }) => {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const closeTimerRef = useRef(null);
 
   useEffect(() => {
     if (!user) return;
@@ -80,6 +81,10 @@ const AddToRoomModal = ({ playlist, onClose }) => {
     loadRooms();
   }, [user]);
 
+  useEffect(() => () => {
+    clearTimeout(closeTimerRef.current);
+  }, []);
+
   const handleConfirm = async () => {
     if (!selectedRoom) return;
     setSubmitting(true);
@@ -88,6 +93,10 @@ const AddToRoomModal = ({ playlist, onClose }) => {
     try {
       const response = await addPlaylistToRoom(playlist.id, selectedRoom);
       setMessage(`✓ ${response.data?.songsAdded || playlist.songCount} songs added to ${response.data?.roomName || selectedRoom}`);
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = setTimeout(() => {
+        onClose();
+      }, 2000);
     } catch (addError) {
       setError(addError.response?.data?.error || 'Could not add this playlist to the room.');
     } finally {

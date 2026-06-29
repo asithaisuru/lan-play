@@ -18,6 +18,7 @@ import PlaylistsPage from './pages/PlaylistsPage';
 import PricingPage from './pages/PricingPage';
 import QueuePage from './pages/QueuePage';
 import MyPlaylistsPage from './pages/MyPlaylistsPage';
+import RoomSettingsPage from './pages/RoomSettingsPage';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -51,6 +52,14 @@ createRoot(document.getElementById('root')).render(
             <Route path="/room/:code/host" element={<HostPage />} />
             <Route path="/room/:code/player" element={<PlayerPage />} />
             <Route path="/room/:code/queue" element={<QueuePage />} />
+            <Route
+              path="/room/:code/settings"
+              element={(
+                <ProtectedRoute>
+                  <RoomSettingsPage />
+                </ProtectedRoute>
+              )}
+            />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </AuthProvider>

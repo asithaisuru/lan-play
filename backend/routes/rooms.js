@@ -1,14 +1,10 @@
 import express from 'express';
 import { pool, createRoom } from '../db/postgres.js';
 import { requireAuth } from '../middleware/auth.js';
+import { getTierLimits } from '../middleware/tierEnforce.js';
 
 const router = express.Router();
 const codeCharacters = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const roomLimits = {
-  free: 1,
-  pro: 3,
-  event: 1
-};
 
 const mapRoom = (row) => row ? ({
   roomCode: row.room_code,
@@ -29,6 +25,10 @@ const mapRoom = (row) => row ? ({
   status: row.status,
   expiresAt: row.expires_at,
   endedAt: row.ended_at,
+  customBrandName: row.custom_brand_name,
+  customBrandLogo: row.custom_brand_logo,
+  customBrandMessage: row.custom_brand_message,
+  customBrandColor: row.custom_brand_color || '#C9A84C',
   createdAt: row.created_at,
   updatedAt: row.updated_at,
   lastActivity: row.last_activity
@@ -55,41 +55,68 @@ const generateRoomCode = async () => {
 router.get('/public/:code', async (req, res) => {
   const roomCode = String(req.params.code || '').trim().toUpperCase();
 
-  if ((process.env.DB_MODE || 'sqlite') !== 'postgres') {
+  try {
+    if ((process.env.DB_MODE || 'sqlite') !== 'postgres') {
+      return res.json({
+        room: {
+          roomCode,
+          room_code: roomCode,
+          name: `Room ${roomCode}`,
+          playlistName: `Room ${roomCode}`,
+          playlist_name: `Room ${roomCode}`,
+          status: 'active',
+          tier: 'lan',
+          hostTier: 'lan',
+          host_tier: 'lan',
+          branding: null
+        }
+      });
+    }
+
+    const { rows } = await pool.query(
+      `SELECT
+         r.room_code,
+         r.playlist_name,
+         r.status,
+         r.tier,
+         r.expires_at,
+         r.custom_brand_name,
+         r.custom_brand_logo,
+         r.custom_brand_message,
+         r.custom_brand_color,
+         u.name AS host_name,
+         u.tier AS host_tier
+       FROM rooms r
+       JOIN users u ON u.id = r.host_id
+       WHERE r.room_code = $1::text
+         AND r.status = 'active'`,
+      [roomCode]
+    );
+
+    if (!rows[0]) {
+      return res.status(404).json({ error: 'Room not found or has ended' });
+    }
+
+    const room = rows[0];
     return res.json({
       room: {
-        roomCode,
-        name: `Room ${roomCode}`,
-        status: 'active',
-        tier: 'lan',
-        branding: null
+        ...room,
+        roomCode: room.room_code,
+        playlistName: room.playlist_name,
+        name: room.playlist_name,
+        expiresAt: room.expires_at,
+        customBrandName: room.custom_brand_name,
+        customBrandLogo: room.custom_brand_logo,
+        customBrandMessage: room.custom_brand_message,
+        customBrandColor: room.custom_brand_color || '#C9A84C',
+        hostName: room.host_name,
+        hostTier: room.host_tier
       }
     });
+  } catch (error) {
+    console.error('Fetch public room error:', error);
+    return res.status(500).json({ error: 'Failed to fetch room info' });
   }
-
-  const { rows } = await pool.query(
-    `SELECT room_code, playlist_name, status, tier
-     FROM rooms
-     WHERE room_code = $1 AND status = 'active'`,
-    [roomCode]
-  );
-
-  if (!rows[0]) {
-    return res.status(404).json({ error: 'This room does not exist or has ended' });
-  }
-
-  const room = rows[0];
-  return res.json({
-    room: {
-      roomCode: room.room_code,
-      name: room.playlist_name,
-      status: room.status,
-      tier: room.tier,
-      branding: room.tier === 'pro' || room.tier === 'event'
-        ? { product: 'Waveio', company: 'KRODOT' }
-        : null
-    }
-  });
 });
 
 router.get('/', requireAuth, async (req, res) => {
@@ -117,21 +144,25 @@ router.post('/', requireAuth, async (req, res) => {
   }
 
   const tier = req.user.tier || 'free';
-  const limit = roomLimits[tier] || roomLimits.free;
+  const limits = getTierLimits(tier);
   const { rows: countRows } = await pool.query(
-    "SELECT COUNT(*)::int AS count FROM rooms WHERE host_id = $1 AND status = 'active'",
+    `SELECT COUNT(*)::integer AS count
+     FROM rooms
+     WHERE host_id = $1::uuid
+       AND status = 'active'`,
     [req.user.id]
   );
 
-  if (countRows[0].count >= limit) {
+  if (Number(countRows[0].count) >= limits.maxRooms) {
     return res.status(403).json({
-      error: `Your ${tier} plan allows ${limit} active room${limit === 1 ? '' : 's'}. Upgrade to create more rooms.`
+      error: `Your ${tier} plan allows ${limits.maxRooms} active room(s). Upgrade to create more.`,
+      code: 'ROOM_LIMIT_REACHED'
     });
   }
 
   const roomCode = await generateRoomCode();
   const ownerId = `cloud:${req.user.id}`;
-  const expiresAt = tier === 'free' ? new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() : null;
+  const expiresAt = tier === 'free' ? new Date(Date.now() + 2 * 60 * 60 * 1000) : null;
 
   await createRoom({
     roomCode,
@@ -156,6 +187,54 @@ router.post('/', requireAuth, async (req, res) => {
   );
 
   return res.status(201).json({ room: mapRoom(rows[0]) });
+});
+
+router.put('/:id/branding', requireAuth, async (req, res) => {
+  try {
+    if (!['pro', 'event'].includes(req.user.tier)) {
+      return res.status(403).json({
+        error: 'Custom branding requires Pro or Event tier',
+        code: 'TIER_REQUIRED'
+      });
+    }
+
+    const roomCode = String(req.params.id || '').trim().toUpperCase();
+    const {
+      customBrandName,
+      customBrandLogo,
+      customBrandMessage,
+      customBrandColor
+    } = req.body || {};
+
+    const { rows } = await pool.query(
+      `UPDATE rooms
+       SET custom_brand_name = $1,
+           custom_brand_logo = $2,
+           custom_brand_message = $3,
+           custom_brand_color = COALESCE($4, '#C9A84C'),
+           updated_at = NOW()
+       WHERE room_code = $5::text
+         AND host_id = $6::uuid
+       RETURNING *`,
+      [
+        customBrandName || null,
+        customBrandLogo || null,
+        customBrandMessage || null,
+        customBrandColor || null,
+        roomCode,
+        req.user.id
+      ]
+    );
+
+    if (!rows[0]) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+
+    return res.json({ room: mapRoom(rows[0]) });
+  } catch (error) {
+    console.error('Update room branding error:', error);
+    return res.status(500).json({ error: 'Failed to update branding' });
+  }
 });
 
 router.get('/:id', requireAuth, async (req, res) => {

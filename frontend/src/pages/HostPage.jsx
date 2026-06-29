@@ -4,6 +4,7 @@ import { Copy, ExternalLink } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
+import SessionEndedOverlay from '../components/room/SessionEndedOverlay';
 import Spinner from '../components/ui/Spinner';
 import WaveioLogo from '../components/ui/WaveioLogo';
 import HostController from '../components/HostController';
@@ -53,6 +54,7 @@ const HostPage = () => {
   const [sessionStarted, setSessionStarted] = useState(false);
   const [hasEverConnected, setHasEverConnected] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
+  const [sessionEnded, setSessionEnded] = useState(null);
   const copyTimerRef = useRef(null);
   const { socket, isConnected } = useSocket(SOCKET_URL, Boolean(user));
   const {
@@ -92,6 +94,17 @@ const HostPage = () => {
       setHasEverConnected(true);
     }
   }, [isConnected]);
+
+  useEffect(() => {
+    if (!socket) return undefined;
+
+    const handleSessionEnded = (data) => {
+      setSessionEnded(data);
+    };
+
+    socket.on('session-ended', handleSessionEnded);
+    return () => socket.off('session-ended', handleSessionEnded);
+  }, [socket]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -290,6 +303,9 @@ const HostPage = () => {
           </>
         )}
       </main>
+      {sessionEnded && (
+        <SessionEndedOverlay message={sessionEnded.message} />
+      )}
       <Footer />
     </div>
   );

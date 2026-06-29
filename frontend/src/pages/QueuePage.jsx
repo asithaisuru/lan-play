@@ -3,6 +3,9 @@ import { Helmet } from 'react-helmet-async';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
+import AdOverlay from '../components/room/AdOverlay';
+import SessionEndedOverlay from '../components/room/SessionEndedOverlay';
+import AdSenseSlot from '../components/ui/AdSenseSlot';
 import Spinner from '../components/ui/Spinner';
 import HostController from '../components/HostController';
 import NowPlaying from '../components/NowPlaying';
@@ -20,6 +23,8 @@ const QueuePage = () => {
   const clientId = sessionStorage.getItem('waveio_client_id');
   const username = sessionStorage.getItem(`waveio_username_${roomCode}`);
   const [hasEverConnected, setHasEverConnected] = useState(false);
+  const [activeAd, setActiveAd] = useState(null);
+  const [sessionEnded, setSessionEnded] = useState(null);
   const { socket, isConnected } = useSocket(SOCKET_URL, Boolean(clientId && username));
   const {
     playlist,
@@ -47,6 +52,35 @@ const QueuePage = () => {
     clientId,
     enabled: Boolean(clientId && username)
   });
+
+  useEffect(() => {
+    if (!socket) return undefined;
+
+    const handleAdStart = (data) => {
+      setActiveAd(data);
+    };
+    const handleAdEnd = () => {
+      setActiveAd(null);
+    };
+    const handleSessionEnded = (data) => {
+      setSessionEnded(data);
+    };
+
+    socket.on('ad-start', handleAdStart);
+    socket.on('ad-end', handleAdEnd);
+    socket.on('session-ended', handleSessionEnded);
+
+    return () => {
+      socket.off('ad-start', handleAdStart);
+      socket.off('ad-end', handleAdEnd);
+      socket.off('session-ended', handleSessionEnded);
+    };
+  }, [socket]);
+
+  const handleAdSkip = () => {
+    setActiveAd(null);
+    socket?.emit('ad-skipped');
+  };
 
   const handleLeaveRoom = () => {
     if (socket) {
@@ -125,12 +159,29 @@ const QueuePage = () => {
                 />
               )}
             </div>
-            <div className="xl:sticky xl:top-6 xl:self-start">
+            <div className="space-y-4 xl:sticky xl:top-6 xl:self-start">
               <PlaylistDisplay playlist={playlist} currentSong={currentSong} />
+              <AdSenseSlot
+                slot={import.meta.env.VITE_ADSENSE_SLOT_SIDEBAR}
+                format="rectangle"
+                className="rounded-xl border border-[#C9A84C22] bg-[#141414] p-3"
+              />
             </div>
           </div>
         )}
       </main>
+      {activeAd && (
+        <AdOverlay
+          ad={activeAd.ad}
+          duration={activeAd.duration || 10}
+          skippableAfter={activeAd.skippableAfter || 5}
+          onSkip={handleAdSkip}
+          onEnd={() => setActiveAd(null)}
+        />
+      )}
+      {sessionEnded && (
+        <SessionEndedOverlay message={sessionEnded.message} />
+      )}
       <Footer />
     </div>
   );

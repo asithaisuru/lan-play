@@ -18,8 +18,16 @@ import {
   setRoomVolume,
   setPlayback,
   setRoomOwner,
-  updateSongTiming
+  updateSongTiming,
+  pool
 } from '../db/postgres.js';
+import {
+  checkGuestLimit,
+  checkQueueLimit,
+  checkSessionExpiry,
+  getRoomWithTier,
+  getTierLimits
+} from '../middleware/tierEnforce.js';
 import { extractYouTubeId, getYouTubeVideoInfo } from '../utils/youtube.js';
 
 const normalizeRoomCode = (roomCode) => String(roomCode || '').trim().toUpperCase();
@@ -108,6 +116,27 @@ export const initializePlaylistSocket = (io) => {
   };
 
   const playNextSong = async (roomCode) => {
+    const expired = await checkSessionExpiry(roomCode);
+    if (expired) {
+      await pool.query(
+        `UPDATE rooms
+         SET status = 'ended',
+             ended_at = NOW(),
+             updated_at = NOW(),
+             last_activity = NOW()
+         WHERE room_code = $1::text`,
+        [roomCode]
+      );
+      io.to(roomCode).emit('session-ended', {
+        message: 'Your 2-hour free session has ended. Upgrade to Pro for unlimited sessions.',
+        code: 'SESSION_EXPIRED'
+      });
+      return null;
+    }
+
+    const roomData = await getRoomWithTier(roomCode);
+    const tier = roomData?.host_tier || roomData?.tier || 'free';
+    const limits = getTierLimits(tier);
     const playlist = await getPlaylistState(roomCode);
     if (!playlist) return null;
     if (playlist.currentSource === 'queue') {
@@ -119,6 +148,23 @@ export const initializePlaylistSocket = (io) => {
       currentSongId: playlist.currentPlaying,
       currentSource: playlist.currentSource
     });
+
+    if (limits.ads && next.song) {
+      io.to(roomCode).emit('ad-start', {
+        duration: 10,
+        skippableAfter: 5,
+        ad: {
+          title: 'KRODOT - Crown of Technology',
+          description: 'Enjoying the music? Upgrade to Pro for ad-free sessions.',
+          url: 'https://waveio.app/pricing',
+          logo: '/waveio-logo.svg'
+        }
+      });
+      await new Promise((resolve) => {
+        setTimeout(resolve, 10000);
+      });
+      io.to(roomCode).emit('ad-end');
+    }
 
     return changeSong(roomCode, next, {
       fade: playlist.currentSource !== next.source,
@@ -258,6 +304,38 @@ export const initializePlaylistSocket = (io) => {
             || shouldBackfillOwner
           );
 
+        const roomWithTier = await getRoomWithTier(roomCode);
+        const roomTier = roomWithTier?.host_tier || roomWithTier?.tier || room.tier || 'free';
+        const limits = getTierLimits(roomTier);
+        const expired = await checkSessionExpiry(roomCode);
+        if (expired) {
+          await pool.query(
+            `UPDATE rooms
+             SET status = 'ended',
+                 ended_at = NOW(),
+                 updated_at = NOW(),
+                 last_activity = NOW()
+             WHERE room_code = $1::text`,
+            [roomCode]
+          );
+          socket.emit('error', {
+            message: 'This session has ended. The host needs to start a new room.',
+            code: 'SESSION_EXPIRED'
+          });
+          return;
+        }
+
+        if (!shouldBecomeHost && !isPlayerDevice) {
+          const withinLimit = await checkGuestLimit(roomCode, roomTier);
+          if (!withinLimit) {
+            socket.emit('error', {
+              message: `This room is full (${limits.maxGuests} guest limit on free tier). Ask the host to upgrade to Pro for unlimited guests.`,
+              code: 'GUEST_LIMIT_REACHED'
+            });
+            return;
+          }
+        }
+
         await addOrUpdateRoomUser({ roomCode, socketId: socket.id, clientId, username, isHost: shouldBecomeHost });
         let audioDeviceAssignedOnJoin = false;
         if (shouldBecomeHost) {
@@ -334,6 +412,19 @@ export const initializePlaylistSocket = (io) => {
           const message = 'Room not found';
           socket.emit('error', { message });
           sendAck(ack, { ok: false, message });
+          return;
+        }
+
+        const roomForQueue = await getRoomWithTier(socket.roomCode);
+        const queueTier = roomForQueue?.host_tier || roomForQueue?.tier || 'free';
+        const withinQueueLimit = await checkQueueLimit(socket.roomCode, queueTier);
+        if (!withinQueueLimit) {
+          const message = 'Queue is full (30 songs on free tier). The host needs to upgrade to Pro for unlimited queue.';
+          socket.emit('error', {
+            message,
+            code: 'QUEUE_LIMIT_REACHED'
+          });
+          sendAck(ack, { ok: false, message, code: 'QUEUE_LIMIT_REACHED' });
           return;
         }
 
@@ -635,6 +726,10 @@ export const initializePlaylistSocket = (io) => {
         audioClientId: targetUser.client_id,
         playlist: updatedPlaylist
       });
+    });
+
+    socket.on('ad-skipped', () => {
+      // Client-side skip only hides the overlay; server keeps the ad break timing authoritative.
     });
 
     socket.on('leave-room', async () => {

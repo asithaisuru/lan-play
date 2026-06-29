@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import Spinner from '../components/ui/Spinner';
+import AdSenseSlot from '../components/ui/AdSenseSlot';
+import WaveioLogo from '../components/ui/WaveioLogo';
 import api from '../services/api';
 import { getSocketOptions, SOCKET_URL } from '../services/socketConfig';
 
@@ -19,37 +21,58 @@ const getOrCreateClientId = () => {
   return next;
 };
 
+const getField = (room, camelKey, snakeKey, fallback = '') => (
+  room?.[camelKey] || room?.[snakeKey] || fallback
+);
+
 const GuestJoinPage = () => {
   const { code = '' } = useParams();
   const navigate = useNavigate();
   const roomCode = code.toUpperCase();
-  const [room, setRoom] = useState(null);
-  const [notFound, setNotFound] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [roomInfo, setRoomInfo] = useState(null);
+  const [loadingRoom, setLoadingRoom] = useState(true);
+  const [roomError, setRoomError] = useState('');
   const [username, setUsername] = useState(sessionStorage.getItem(`waveio_username_${roomCode}`) || '');
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState('');
 
   const roomName = useMemo(() => (
-    room?.name || room?.playlistName || room?.playlist_name || `Room ${roomCode}`
-  ), [room, roomCode]);
+    getField(roomInfo, 'name', 'playlist_name', `Room ${roomCode}`)
+  ), [roomInfo, roomCode]);
+
+  const brand = useMemo(() => {
+    const hostTier = getField(roomInfo, 'hostTier', 'host_tier', roomInfo?.tier || 'free');
+    const customBrandName = getField(roomInfo, 'customBrandName', 'custom_brand_name');
+    const customBrandLogo = getField(roomInfo, 'customBrandLogo', 'custom_brand_logo');
+    const customBrandMessage = getField(roomInfo, 'customBrandMessage', 'custom_brand_message');
+    const customBrandColor = getField(roomInfo, 'customBrandColor', 'custom_brand_color', '#C9A84C');
+    const hasCustomBranding = ['pro', 'event'].includes(hostTier) && Boolean(customBrandName);
+
+    return {
+      hostTier,
+      customBrandName,
+      customBrandLogo,
+      customBrandMessage,
+      customBrandColor,
+      hasCustomBranding
+    };
+  }, [roomInfo]);
 
   useEffect(() => {
     const loadRoom = async () => {
-      setLoading(true);
-      setNotFound(false);
+      setLoadingRoom(true);
+      setRoomError('');
       try {
         const response = await api.get(`/rooms/public/${roomCode}`);
-        setRoom(response.data?.room || response.data || null);
+        setRoomInfo(response.data?.room || response.data || null);
       } catch (loadError) {
-        const contentType = loadError.response?.headers?.['content-type'] || '';
-        if (loadError.response?.status === 404 && contentType.includes('application/json')) {
-          setNotFound(true);
+        if (loadError.response?.status === 404) {
+          setRoomError('This room does not exist or has ended.');
         } else {
-          setRoom({ roomCode, name: `Room ${roomCode}` });
+          setRoomInfo({ roomCode, name: `Room ${roomCode}` });
         }
       } finally {
-        setLoading(false);
+        setLoadingRoom(false);
       }
     };
 
@@ -103,43 +126,103 @@ const GuestJoinPage = () => {
     });
   };
 
+  const buttonStyle = brand.hasCustomBranding
+    ? { backgroundColor: brand.customBrandColor, color: '#0A0A0A' }
+    : undefined;
+
+  const accentStyle = brand.hasCustomBranding
+    ? { color: brand.customBrandColor }
+    : undefined;
+
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-[#F5F5F5]">
       <Helmet>
-        <title>Join {roomCode} — Waveio</title>
+        <title>Join {roomCode} - Waveio</title>
       </Helmet>
       <Header />
       <main className="mx-auto flex max-w-3xl items-center justify-center px-4 py-16 md:px-6">
-        {loading ? (
+        {loadingRoom ? (
           <Spinner label="Checking room" />
-        ) : notFound ? (
+        ) : roomError ? (
           <div className="w-full rounded-lg border border-[#C9A84C22] bg-[#141414] p-8 text-center">
-            <h1 className="text-3xl font-semibold">This room doesn't exist or has ended</h1>
+            <h1 className="text-3xl font-semibold">Room not found</h1>
+            <p className="mt-2 text-[#888880]">{roomError}</p>
+            <Link to="/" className="btn btn-primary mt-6">Go home</Link>
           </div>
         ) : (
-          <form onSubmit={joinRoom} className="w-full rounded-lg border border-[#C9A84C22] bg-[#141414] p-8">
-            <p className="eyebrow">Join room</p>
-            <h1 className="mt-2 text-3xl font-semibold">{roomName}</h1>
-            <p className="mt-2 font-mono text-sm text-[#888880]">{roomCode}</p>
-            <label className="mt-8 block text-sm font-semibold text-[#D0D0C8]" htmlFor="guest-username">
-              Your name
-            </label>
-            <input
-              id="guest-username"
-              type="text"
-              minLength={3}
-              maxLength={20}
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              className="input mt-2"
-              placeholder="Your name"
-              required
+          <div className="w-full">
+            <form onSubmit={joinRoom} className="rounded-lg border border-[#C9A84C22] bg-[#141414] p-8">
+              <div className="text-center">
+                {brand.hasCustomBranding ? (
+                  <>
+                    {brand.customBrandLogo ? (
+                      <img
+                        src={brand.customBrandLogo}
+                        alt=""
+                        className="mx-auto h-20 w-20 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="mx-auto flex h-20 w-20 items-center justify-center rounded-lg border border-[#C9A84C22] bg-[#0A0A0A] text-3xl font-black"
+                        style={accentStyle}
+                      >
+                        {brand.customBrandName.slice(0, 1).toUpperCase()}
+                      </div>
+                    )}
+                    <p className="mt-5 text-xs font-bold uppercase text-[#888880]">Join room</p>
+                    <h1 className="mt-2 text-3xl font-semibold" style={accentStyle}>
+                      {brand.customBrandName}
+                    </h1>
+                    <p className="mt-3 text-[#D0D0C8]">
+                      {brand.customBrandMessage || roomName}
+                    </p>
+                    <p className="mt-2 font-mono text-sm text-[#888880]">{roomCode}</p>
+                  </>
+                ) : (
+                  <>
+                    <WaveioLogo size={56} showWordmark={false} className="justify-center" />
+                    <p className="mt-5 text-xs font-bold uppercase text-[#888880]">Join room</p>
+                    <h1 className="mt-2 text-3xl font-semibold">{roomName}</h1>
+                    <p className="mt-2 font-mono text-sm text-[#888880]">{roomCode}</p>
+                  </>
+                )}
+              </div>
+
+              <label className="mt-8 block text-sm font-semibold text-[#D0D0C8]" htmlFor="guest-username">
+                Your name
+              </label>
+              <input
+                id="guest-username"
+                type="text"
+                minLength={3}
+                maxLength={20}
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                className="input mt-2"
+                placeholder="Your name"
+                required
+              />
+              {error && <p className="mt-3 text-sm text-rose-200">{error}</p>}
+              <button
+                type="submit"
+                className="btn btn-primary mt-6 w-full"
+                style={buttonStyle}
+                disabled={joining}
+              >
+                {joining ? 'Joining...' : 'Join room'}
+              </button>
+              {brand.hasCustomBranding && (
+                <p className="mt-5 text-center text-xs text-[#888880]">
+                  Powered by Waveio
+                </p>
+              )}
+            </form>
+            <AdSenseSlot
+              slot={import.meta.env.VITE_ADSENSE_SLOT_JOIN}
+              format="auto"
+              className="mt-6 rounded-xl border border-[#C9A84C22] bg-[#141414] p-3"
             />
-            {error && <p className="mt-3 text-sm text-rose-200">{error}</p>}
-            <button type="submit" className="btn btn-primary mt-6 w-full" disabled={joining}>
-              {joining ? 'Joining...' : 'Join room'}
-            </button>
-          </form>
+          </div>
         )}
       </main>
       <Footer />
