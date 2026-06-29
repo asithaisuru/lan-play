@@ -295,14 +295,39 @@ export const initializePlaylistSocket = (io) => {
           room = await getRoom(roomCode);
         }
 
+        const isAuthenticatedOwner = Boolean(
+          socket.authenticatedUserId
+          && room?.host_id
+          && String(socket.authenticatedUserId) === String(room.host_id)
+        );
+
         const existingState = await getPlaylistState(roomCode);
+        const previousHostUser = existingState?.users?.find((user) => user.isHost);
+        const previousHost = previousHostUser?.username;
         const shouldBackfillOwner = !isPlayerDevice && !room.owner_client_id && room.owner_socket_id === socket.id;
+        const ownerShouldReclaimHost = !isPlayerDevice && isAuthenticatedOwner;
         const shouldBecomeHost = !isPlayerDevice
           && (
-            !existingState.users.length
+            !existingState?.users?.length
             || room.owner_client_id === clientId
             || shouldBackfillOwner
+            || ownerShouldReclaimHost
           );
+
+        if (ownerShouldReclaimHost && room.owner_client_id !== clientId) {
+          await pool.query(
+            `UPDATE rooms
+             SET owner_client_id = $1::text,
+                 updated_at = NOW()
+             WHERE room_code = $2::text`,
+            [clientId, roomCode]
+          );
+          room = {
+            ...room,
+            owner_client_id: clientId
+          };
+          console.log(`Owner reclaimed host for room ${roomCode}:`, clientId);
+        }
 
         const roomWithTier = await getRoomWithTier(roomCode);
         const roomTier = roomWithTier?.host_tier || roomWithTier?.tier || room.tier || 'free';
@@ -378,6 +403,16 @@ export const initializePlaylistSocket = (io) => {
           isHost: playlist.ownerClientId === clientId || playlist.ownerSocketId === socket.id,
           serverTimestamp: Date.now()
         });
+
+        if (ownerShouldReclaimHost && previousHost && previousHost !== username) {
+          io.to(roomCode).emit('host-changed', {
+            newHost: username,
+            newHostSocketId: socket.id,
+            newHostClientId: clientId,
+            playlist,
+            reason: 'owner-reclaim'
+          });
+        }
 
         socket.to(roomCode).emit('user-joined', {
           username,

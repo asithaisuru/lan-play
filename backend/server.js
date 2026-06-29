@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import { networkInterfaces } from 'os'; // Import from 'os' directly
 import cookieParser from 'cookie-parser';
 import passport from 'passport';
+import jwt from 'jsonwebtoken';
 import authRouter from './routes/auth.js';
 import communityPlaylistsRouter from './routes/communityPlaylists.js';
 import roomsRouter from './routes/rooms.js';
@@ -170,6 +171,26 @@ const io = new Server(server, {
 });
 
 await configureSocketAdapter(io);
+
+io.use(async (socket, next) => {
+  try {
+    const cookie = socket.handshake.headers.cookie;
+    if (!cookie) return next();
+
+    const tokenMatch = cookie.match(/waveio_token=([^;]+)/);
+    if (!tokenMatch) return next();
+
+    const token = decodeURIComponent(tokenMatch[1]);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    socket.authenticatedUserId = decoded.id;
+    socket.authenticatedUserTier = decoded.tier;
+  } catch {
+    // Guests and expired auth cookies can still join public room flows.
+  }
+
+  return next();
+});
 
 // Middleware
 app.use(cors({

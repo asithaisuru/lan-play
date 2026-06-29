@@ -133,6 +133,10 @@ export const usePlaylist = (socket, clientId) => {
         applyPlaylist(data.playlist);
       }
       setIsHost(data.newHostClientId === clientId || socket.id === data.newHostSocketId);
+
+      if (data.reason === 'owner-reclaim') {
+        console.log('Room owner has rejoined and reclaimed host:', data.newHost);
+      }
     };
 
     const handleAudioDeviceChanged = (data) => {

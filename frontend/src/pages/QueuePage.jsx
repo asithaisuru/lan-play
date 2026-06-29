@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Header from '../components/layout/Header';
@@ -26,6 +26,8 @@ const QueuePage = () => {
   const [activeAd, setActiveAd] = useState(null);
   const [sessionEnded, setSessionEnded] = useState(null);
   const [roomError, setRoomError] = useState(null);
+  const [toast, setToast] = useState(null);
+  const toastTimerRef = useRef(null);
   const { socket, isConnected } = useSocket(SOCKET_URL, Boolean(clientId && username));
   const {
     playlist,
@@ -54,6 +56,12 @@ const QueuePage = () => {
     enabled: Boolean(clientId && username)
   });
 
+  const showToast = useCallback((message, type = 'info') => {
+    setToast({ message, type });
+    clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(null), 4000);
+  }, []);
+
   useEffect(() => {
     if (!socket) return undefined;
 
@@ -74,19 +82,32 @@ const QueuePage = () => {
         });
       }
     };
+    const handleHostChanged = (data) => {
+      if (data.reason === 'owner-reclaim') {
+        showToast(`${data.newHost} (room owner) has rejoined and is now the host`, 'info');
+      } else if (data.newHostClientId !== clientId) {
+        showToast(`${data.newHost} is now the host`, 'info');
+      }
+    };
 
     socket.on('ad-start', handleAdStart);
     socket.on('ad-end', handleAdEnd);
     socket.on('session-ended', handleSessionEnded);
     socket.on('error', handleRoomError);
+    socket.on('host-changed', handleHostChanged);
 
     return () => {
       socket.off('ad-start', handleAdStart);
       socket.off('ad-end', handleAdEnd);
       socket.off('session-ended', handleSessionEnded);
       socket.off('error', handleRoomError);
+      socket.off('host-changed', handleHostChanged);
     };
-  }, [socket]);
+  }, [clientId, showToast, socket]);
+
+  useEffect(() => () => {
+    clearTimeout(toastTimerRef.current);
+  }, []);
 
   const handleAdSkip = () => {
     setActiveAd(null);
@@ -123,6 +144,16 @@ const QueuePage = () => {
       </Helmet>
       <Header />
       <main className="mx-auto max-w-7xl px-4 py-8 md:px-6">
+        {toast && (
+          <div className={`fixed top-4 right-4 z-40 max-w-sm rounded-xl border px-4 py-3 text-sm font-semibold shadow-lg transition-all ${
+            toast.type === 'info'
+              ? 'border-[#C9A84C33] bg-[#141414] text-[#F5F5F5]'
+              : 'border-rose-400/25 bg-rose-400/10 text-rose-100'
+          }`}
+          >
+            {toast.message}
+          </div>
+        )}
         <div className="mb-6 rounded-lg border border-[#C9A84C22] bg-[#141414] p-5">
           <p className="eyebrow">Room queue</p>
           <div className="mt-2 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">

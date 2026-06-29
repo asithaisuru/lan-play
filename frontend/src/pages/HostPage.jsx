@@ -55,7 +55,9 @@ const HostPage = () => {
   const [hasEverConnected, setHasEverConnected] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
   const [sessionEnded, setSessionEnded] = useState(null);
+  const [toast, setToast] = useState(null);
   const copyTimerRef = useRef(null);
+  const toastTimerRef = useRef(null);
   const { socket, isConnected } = useSocket(SOCKET_URL, Boolean(user));
   const {
     playlist,
@@ -95,16 +97,33 @@ const HostPage = () => {
     }
   }, [isConnected]);
 
+  const showToast = useCallback((message, type = 'info') => {
+    setToast({ message, type });
+    clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(null), 4000);
+  }, []);
+
   useEffect(() => {
     if (!socket) return undefined;
 
     const handleSessionEnded = (data) => {
       setSessionEnded(data);
     };
+    const handleHostChanged = (data) => {
+      if (data.reason === 'owner-reclaim') {
+        showToast(`${data.newHost} (room owner) has rejoined and is now the host`, 'info');
+      } else if (data.newHostClientId !== clientId) {
+        showToast(`${data.newHost} is now the host`, 'info');
+      }
+    };
 
     socket.on('session-ended', handleSessionEnded);
-    return () => socket.off('session-ended', handleSessionEnded);
-  }, [socket]);
+    socket.on('host-changed', handleHostChanged);
+    return () => {
+      socket.off('session-ended', handleSessionEnded);
+      socket.off('host-changed', handleHostChanged);
+    };
+  }, [clientId, showToast, socket]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -119,8 +138,10 @@ const HostPage = () => {
   }, [loading, user]);
 
   useEffect(() => {
-    const timer = copyTimerRef.current;
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(copyTimerRef.current);
+      clearTimeout(toastTimerRef.current);
+    };
   }, []);
 
   const handleCopyInvite = useCallback(async () => {
@@ -174,6 +195,16 @@ const HostPage = () => {
       </Helmet>
       <Header />
       <main className="mx-auto max-w-7xl px-4 py-8 md:px-6">
+        {toast && (
+          <div className={`fixed top-4 right-4 z-40 max-w-sm rounded-xl border px-4 py-3 text-sm font-semibold shadow-lg transition-all ${
+            toast.type === 'info'
+              ? 'border-[#C9A84C33] bg-[#141414] text-[#F5F5F5]'
+              : 'border-rose-400/25 bg-rose-400/10 text-rose-100'
+          }`}
+          >
+            {toast.message}
+          </div>
+        )}
         {!sessionStarted ? (
           <div className="flex min-h-[60vh] items-center justify-center">
             <div className="max-w-md text-center">
