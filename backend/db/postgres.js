@@ -98,7 +98,8 @@ export const getPlaylistState = async (roomCode) => {
     currentSource: room.current_source,
     currentSong,
     isPlaying: Boolean(room.is_playing),
-    currentTime: Number(room.current_time) || 0,
+    currentPosition: Number(room.current_position) || 0,
+    currentTime: Number(room.current_position) || 0,
     volume: Number.isFinite(Number(room.volume)) ? Number(room.volume) : 100,
     announcementEnabled: Boolean(room.announcement_enabled),
     defaultIndex: Number(room.default_index) || 0,
@@ -114,7 +115,7 @@ export const createRoom = async ({ roomCode, ownerSocketId, ownerClientId, usern
   await pool.query(
     `INSERT INTO rooms (
       room_code, owner_socket_id, owner_client_id, audio_socket_id, audio_client_id,
-      playlist_name, created_by, is_playing, current_time, volume,
+      playlist_name, created_by, is_playing, current_position, volume,
       announcement_enabled, default_index, created_at, updated_at, last_activity
     )
     VALUES ($1, $2, $3, $4, $5, $6, $7, false, 0, 100, false, 0, $8, $9, $10)`,
@@ -315,7 +316,7 @@ export const setPlayback = async ({ roomCode, songId, source, isPlaying, current
      SET current_song_id = $1,
          current_source = $2,
          is_playing = $3,
-         current_time = $4,
+         current_position = $4,
          default_index = COALESCE($5, default_index),
          updated_at = $6,
          last_activity = $7
@@ -341,7 +342,7 @@ export const updateSongTiming = async ({ songId, duration, currentTime, roomCode
 
   if (roomCode && Number.isFinite(currentTime)) {
     await pool.query(
-      'UPDATE rooms SET current_time = $1, updated_at = $2, last_activity = $3 WHERE room_code = $4',
+      'UPDATE rooms SET current_position = $1, updated_at = $2, last_activity = $3 WHERE room_code = $4',
       [currentTime, now(), now(), roomCode]
     );
   }

@@ -12,14 +12,16 @@ import youtubeRouter from './routes/youtube.js';
 
 dotenv.config();
 
-const dbMode = (process.env.DB_MODE || 'sqlite').toLowerCase();
+const dbMode = process.env.DB_MODE || 'sqlite';
 let initializePlaylistSocket;
 
 if (dbMode === 'postgres') {
-  ({ initializePlaylistSocket } = await import('./sockets/playlistSocketCloud.js'));
+  const mod = await import('./sockets/playlistSocketCloud.js');
+  initializePlaylistSocket = mod.initializePlaylistSocket;
   console.log('Database mode: PostgreSQL (Cloud)');
 } else {
-  ({ initializePlaylistSocket } = await import('./sockets/playlistSocket.js'));
+  const mod = await import('./sockets/playlistSocket.js');
+  initializePlaylistSocket = mod.initializePlaylistSocket;
   console.log('Database mode: SQLite (LAN)');
 }
 
@@ -68,6 +70,7 @@ function getPrimaryNetworkInfo() {
 }
 
 const app = express();
+app.set('trust proxy', 1);
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
@@ -129,7 +132,7 @@ function getLocalIP() {
 const localIP = getLocalIP();
 
 server.listen(PORT, HOST, () => {
-  console.log(`Waveio LAN Server running on port ${PORT}`);
+  console.log(`Waveio ${dbMode === 'postgres' ? 'Cloud' : 'LAN'} Server running on port ${PORT}`);
   console.log(`Local access: http://localhost:${PORT}`);
   console.log(`Network access: http://${localIP}:${PORT}`);
 });

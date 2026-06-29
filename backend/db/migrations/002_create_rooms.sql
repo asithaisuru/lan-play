@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS rooms (
   current_song_id       TEXT,
   current_source        TEXT,
   is_playing            BOOLEAN NOT NULL DEFAULT false,
-  current_time          NUMERIC NOT NULL DEFAULT 0,
+  current_position      NUMERIC NOT NULL DEFAULT 0,
   volume                INTEGER NOT NULL DEFAULT 100,
   announcement_enabled  BOOLEAN NOT NULL DEFAULT false,
   default_index         INTEGER NOT NULL DEFAULT 0,

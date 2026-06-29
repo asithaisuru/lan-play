@@ -311,7 +311,7 @@ export const initializePlaylistSocket = (io) => {
             await updateSongTiming({
               roomCode: socket.roomCode,
               songId: playlistBefore.currentPlaying,
-              currentTime: playlistBefore.currentTime,
+              currentTime: playlistBefore.currentPosition ?? 0,
               duration: playlistBefore.currentSong?.duration
             });
           }
@@ -414,14 +414,14 @@ export const initializePlaylistSocket = (io) => {
       await updateSongTiming({
         roomCode: socket.roomCode,
         songId: playlist.currentPlaying,
-        currentTime: Number.isFinite(currentTime) ? currentTime : playlist.currentTime,
+        currentTime: Number.isFinite(currentTime) ? currentTime : (playlist.currentPosition ?? 0),
         duration: Number.isFinite(duration) ? duration : playlist.currentSong?.duration
       });
 
       const updatedPlaylist = await emitPlaylistUpdate(socket.roomCode);
       io.to(socket.roomCode).emit('playback-progress', {
         songId: playlist.currentPlaying,
-        currentTime: Number.isFinite(currentTime) ? currentTime : updatedPlaylist.currentTime,
+        currentTime: Number.isFinite(currentTime) ? currentTime : (updatedPlaylist.currentPosition ?? 0),
         duration: Number.isFinite(duration) ? duration : updatedPlaylist.currentSong?.duration || 0,
         playlist: updatedPlaylist
       });
