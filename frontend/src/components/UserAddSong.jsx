@@ -4,24 +4,45 @@ const UserAddSong = ({ socket, username }) => {
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleAddSong = async (e) => {
     e.preventDefault();
     if (!youtubeUrl.trim()) return;
+    if (!socket?.connected) {
+      setError('Room server is reconnecting. Try again in a moment.');
+      return;
+    }
 
     setIsLoading(true);
+    setError('');
     
     try {
-      socket.emit('add-song', {
+      const payload = {
         youtubeUrl: youtubeUrl.trim(),
         username,
         message: message.trim()
+      };
+
+      const response = await new Promise((resolve) => {
+        socket.timeout(12000).emit('add-song', payload, (timeoutError, ack) => {
+          if (timeoutError) {
+            resolve({ ok: false, message: 'Song request timed out. Check the room connection and try again.' });
+            return;
+          }
+
+          resolve(ack || { ok: false, message: 'The room server did not confirm the song request.' });
+        });
       });
+
+      if (!response.ok) {
+        throw new Error(response.message || 'Failed to add song.');
+      }
       
       setYoutubeUrl('');
       setMessage('');
     } catch (error) {
-      alert('Failed to add song: ' + error.message);
+      setError(error.message);
     } finally {
       setIsLoading(false);
     }
@@ -68,11 +89,16 @@ const UserAddSong = ({ socket, username }) => {
         <button 
           type="submit" 
           className="btn btn-primary h-[46px] w-full lg:w-auto"
-          disabled={isLoading || !youtubeUrl.trim()}
+          disabled={isLoading || !youtubeUrl.trim() || !socket?.connected}
         >
           {isLoading ? 'Adding...' : 'Add song'}
         </button>
       </form>
+      {error && (
+        <p className="mt-3 rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-100">
+          {error}
+        </p>
+      )}
     </div>
   );
 };

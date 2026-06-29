@@ -53,6 +53,19 @@ const generateRoomCode = async () => {
 
 router.get('/public/:code', async (req, res) => {
   const roomCode = String(req.params.code || '').trim().toUpperCase();
+
+  if ((process.env.DB_MODE || 'sqlite') !== 'postgres') {
+    return res.json({
+      room: {
+        roomCode,
+        name: `Room ${roomCode}`,
+        status: 'active',
+        tier: 'lan',
+        branding: null
+      }
+    });
+  }
+
   const { rows } = await pool.query(
     `SELECT room_code, playlist_name, status, tier
      FROM rooms

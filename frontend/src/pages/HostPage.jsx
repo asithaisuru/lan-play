@@ -13,11 +13,7 @@ import { useSocket } from '../hooks/useSocket';
 import { usePlaylist } from '../hooks/usePlaylist';
 import { useRoomJoin } from '../hooks/useRoomJoin';
 import { useAuth } from '../context/AuthContext';
-
-const SOCKET_URL = (() => {
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-  return apiUrl.replace(/\/api\/?$/, '');
-})();
+import { SOCKET_URL } from '../services/socketConfig';
 
 const getOrCreateHostClientId = () => {
   const existingClientId = localStorage.getItem('waveio_host_clientId');
@@ -57,7 +53,7 @@ const HostPage = () => {
   const [hasEverConnected, setHasEverConnected] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
   const copyTimerRef = useRef(null);
-  const { socket, isConnected } = useSocket(SOCKET_URL);
+  const { socket, isConnected } = useSocket(SOCKET_URL, Boolean(user));
   const {
     playlist,
     currentSong,

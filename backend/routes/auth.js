@@ -120,7 +120,7 @@ router.get('/me', async (req, res) => {
   try {
     const token = req.cookies?.waveio_token;
     if (!token) {
-      return res.status(401).json({ error: 'Authentication required' });
+      return res.json({ user: null });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);

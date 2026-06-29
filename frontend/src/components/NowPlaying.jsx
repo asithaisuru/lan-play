@@ -55,6 +55,7 @@ const NowPlaying = ({
   const playerSongIdRef = useRef(null);
   const playerVideoIdRef = useRef(null);
   const announcementTimerRef = useRef(null);
+  const advanceInFlightRef = useRef(false);
   const latestStateRef = useRef({
     currentSong,
     currentSource,
@@ -73,6 +74,7 @@ const NowPlaying = ({
   const [knownDuration, setKnownDuration] = useState(currentSong?.duration || 0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [audioReady, setAudioReady] = useState(false);
+  const [advanceError, setAdvanceError] = useState('');
   const roomVolume = Math.max(0, Math.min(100, Number(playlist?.volume ?? 100)));
   const effectiveAudioReady = !isAudioDevice || audioReady || audioActivated;
   const canUseAudioPlayer = Boolean(isAudioDevice && effectiveAudioReady);
@@ -223,6 +225,36 @@ const NowPlaying = ({
     };
   }, [currentSong, currentSource, effectiveAudioReady, isAudioDevice, isHost, isPlaying, playlist, socket]);
 
+  const requestNextSong = useCallback((reason = 'next') => {
+    const latest = latestStateRef.current;
+    const activeSong = latest.currentSong;
+
+    if (!latest.socket || !latest.isAudioDevice || !activeSong || advanceInFlightRef.current) return;
+
+    advanceInFlightRef.current = true;
+    latest.socket.timeout(10000).emit('next-song', { reason, songId: activeSong._id }, (timeoutError, ack) => {
+      if (timeoutError || !ack?.ok) {
+        const message = timeoutError
+          ? 'Next song request timed out.'
+          : ack?.message || 'Next song request failed.';
+        console.warn('Next song advance failed:', message);
+        setAdvanceError(message);
+        advanceInFlightRef.current = false;
+        return;
+      }
+
+      setAdvanceError('');
+      if (ack.reason === 'stopped') {
+        advanceInFlightRef.current = false;
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    advanceInFlightRef.current = false;
+    setAdvanceError('');
+  }, [currentSong?._id]);
+
   // Load YouTube IFrame API
   useEffect(() => {
     if (!window.YT?.Player) {
@@ -360,7 +392,7 @@ const NowPlaying = ({
             
             // Automatically play next song
             if (latest.socket && latest.isAudioDevice && activeSong?._id === playerSongIdRef.current) {
-              latest.socket.emit('next-song');
+              requestNextSong('ended');
             }
           }
           
@@ -376,7 +408,7 @@ const NowPlaying = ({
           
           // If there's an error with the current song, skip to next
           if (latest.socket && latest.isAudioDevice) {
-            latest.socket.emit('next-song');
+            requestNextSong('player-error');
           }
         }
       }
@@ -384,7 +416,7 @@ const NowPlaying = ({
 
     hasAnnouncedRef.current = false;
     setIsPlayerReady(false);
-  }, [canUseAudioPlayer, currentSong, fadeVolume, getPlayerMount, isReadyPlayer, playAnnouncement, roomVolume, visiblePlayer]);
+  }, [canUseAudioPlayer, currentSong, fadeVolume, getPlayerMount, isReadyPlayer, playAnnouncement, requestNextSong, roomVolume, visiblePlayer]);
 
   // Re-initialize player when song changes
   useEffect(() => {
@@ -499,10 +531,14 @@ const NowPlaying = ({
           duration
         });
       }
+
+      if (duration > 0 && current >= duration - 0.75) {
+        requestNextSong('duration-fallback');
+      }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [canUseAudioPlayer, currentSong, isPlayerReady, isReadyPlayer, player, socket]);
+  }, [canUseAudioPlayer, currentSong, isPlayerReady, isReadyPlayer, player, requestNextSong, socket]);
 
   useEffect(() => {
     if (isAudioDevice || !isPlaying || !currentSong) return;
@@ -614,8 +650,25 @@ const NowPlaying = ({
   };
 
   const handleNext = () => {
-    if (!socket || !isHost) return;
-    socket.emit('next-song');
+    if (!socket || !isHost || advanceInFlightRef.current) return;
+
+    advanceInFlightRef.current = true;
+    socket.timeout(10000).emit('next-song', { reason: 'manual' }, (timeoutError, ack) => {
+      if (timeoutError || !ack?.ok) {
+        const message = timeoutError
+          ? 'Next song request timed out.'
+          : ack?.message || 'Next song request failed.';
+        console.warn('Manual next failed:', message);
+        setAdvanceError(message);
+        advanceInFlightRef.current = false;
+        return;
+      }
+
+      setAdvanceError('');
+      if (ack.reason === 'stopped') {
+        advanceInFlightRef.current = false;
+      }
+    });
   };
 
   const handleVolumeChange = (volume) => {
@@ -836,6 +889,13 @@ const NowPlaying = ({
           <div className="m-5 rounded-lg border border-white/10 bg-white/5 p-4">
             <p className="font-semibold text-white">Audio player ready</p>
             <p className="mt-1 text-sm text-slate-400">This device is playing room audio.</p>
+          </div>
+        )}
+
+        {advanceError && (
+          <div className="m-5 rounded-lg border border-rose-400/25 bg-rose-400/10 p-4">
+            <p className="font-semibold text-rose-100">Could not advance playback</p>
+            <p className="mt-1 text-sm text-rose-100/80">{advanceError}</p>
           </div>
         )}
 

@@ -11,11 +11,7 @@ import UserAddSong from '../components/UserAddSong';
 import { useSocket } from '../hooks/useSocket';
 import { usePlaylist } from '../hooks/usePlaylist';
 import { useRoomJoin } from '../hooks/useRoomJoin';
-
-const SOCKET_URL = (() => {
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-  return apiUrl.replace(/\/api\/?$/, '');
-})();
+import { SOCKET_URL } from '../services/socketConfig';
 
 const QueuePage = () => {
   const { code = '' } = useParams();
@@ -24,7 +20,7 @@ const QueuePage = () => {
   const clientId = sessionStorage.getItem('waveio_client_id');
   const username = sessionStorage.getItem(`waveio_username_${roomCode}`);
   const [hasEverConnected, setHasEverConnected] = useState(false);
-  const { socket, isConnected } = useSocket(SOCKET_URL);
+  const { socket, isConnected } = useSocket(SOCKET_URL, Boolean(clientId && username));
   const {
     playlist,
     currentSong,

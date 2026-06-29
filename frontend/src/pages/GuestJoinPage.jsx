@@ -6,11 +6,7 @@ import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import Spinner from '../components/ui/Spinner';
 import api from '../services/api';
-
-const getSocketUrl = () => {
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-  return apiUrl.replace(/\/api\/?$/, '');
-};
+import { getSocketOptions, SOCKET_URL } from '../services/socketConfig';
 
 const getOrCreateClientId = () => {
   const existing = sessionStorage.getItem('waveio_client_id');
@@ -43,7 +39,7 @@ const GuestJoinPage = () => {
       setLoading(true);
       setNotFound(false);
       try {
-        const response = await api.get(`/rooms/${roomCode}`);
+        const response = await api.get(`/rooms/public/${roomCode}`);
         setRoom(response.data?.room || response.data || null);
       } catch (loadError) {
         const contentType = loadError.response?.headers?.['content-type'] || '';
@@ -74,9 +70,7 @@ const GuestJoinPage = () => {
     sessionStorage.setItem('waveio_username_' + roomCode, safeUsername);
     sessionStorage.setItem('waveio_client_id', clientId);
 
-    const socket = io(getSocketUrl(), {
-      transports: ['websocket', 'polling']
-    });
+    const socket = io(SOCKET_URL, getSocketOptions(SOCKET_URL));
 
     const cleanup = () => {
       socket.off('playlist-state');

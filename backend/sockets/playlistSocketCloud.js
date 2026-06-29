@@ -25,6 +25,11 @@ import { extractYouTubeId, getYouTubeVideoInfo } from '../utils/youtube.js';
 const normalizeRoomCode = (roomCode) => String(roomCode || '').trim().toUpperCase();
 const normalizeUsername = (username) => String(username || '').trim();
 const normalizeClientId = (clientId) => String(clientId || '').trim();
+const sendAck = (ack, payload) => {
+  if (typeof ack === 'function') {
+    ack(payload);
+  }
+};
 
 export const initializePlaylistSocket = (io) => {
   const pendingHostReassignments = new Map();
@@ -289,24 +294,33 @@ export const initializePlaylistSocket = (io) => {
         });
         await emitPlaylistUpdate(roomCode);
 
-        console.log(`User ${username} joined room ${roomCode}`);
+        const adapterName = io.of('/').adapter?.constructor?.name || 'unknown';
+        console.log(`User ${username} joined room ${roomCode}`, {
+          clientId,
+          socketId: socket.id,
+          adapter: adapterName
+        });
       } catch (error) {
         console.error('Join room error:', error);
         socket.emit('error', { message: 'Failed to join room: ' + error.message });
       }
     });
 
-    socket.on('add-song', async (data) => {
+    socket.on('add-song', async (data, ack) => {
       try {
         if (!socket.roomCode) {
-          socket.emit('error', { message: 'Join a room before adding songs' });
+          const message = 'Join a room before adding songs';
+          socket.emit('error', { message });
+          sendAck(ack, { ok: false, message });
           return;
         }
 
         const username = normalizeUsername(data?.username) || socket.username || 'Guest';
         const playlistBefore = await getPlaylistState(socket.roomCode);
         if (!playlistBefore) {
-          socket.emit('error', { message: 'Room not found' });
+          const message = 'Room not found';
+          socket.emit('error', { message });
+          sendAck(ack, { ok: false, message });
           return;
         }
 
@@ -352,10 +366,12 @@ export const initializePlaylistSocket = (io) => {
           });
         }
 
-        console.log(`Song added successfully by ${username}`);
+        sendAck(ack, { ok: true, song, playlist });
+        console.log(`Song added successfully by ${username} in room ${socket.roomCode}`);
       } catch (error) {
         console.error('Add song error:', error);
         socket.emit('error', { message: error.message });
+        sendAck(ack, { ok: false, message: error.message });
       }
     });
 
@@ -444,9 +460,27 @@ export const initializePlaylistSocket = (io) => {
       });
     });
 
-    socket.on('next-song', async () => {
-      if (!(await requireAudioDevice(socket))) return;
-      await playNextSong(socket.roomCode);
+    socket.on('next-song', async (...args) => {
+      const ack = args.find((arg) => typeof arg === 'function');
+      const playlist = await requireAudioDevice(socket);
+      if (!playlist) {
+        sendAck(ack, { ok: false, message: 'Only the assigned audio device can advance playback' });
+        return;
+      }
+
+      try {
+        const updatedPlaylist = await playNextSong(socket.roomCode);
+        sendAck(ack, {
+          ok: true,
+          playlist: updatedPlaylist,
+          reason: updatedPlaylist ? 'advanced' : 'stopped'
+        });
+        console.log(`Next song advanced in room ${socket.roomCode}`);
+      } catch (error) {
+        console.error('Next song error:', error);
+        socket.emit('error', { message: error.message });
+        sendAck(ack, { ok: false, message: error.message });
+      }
     });
 
     socket.on('set-announcement-enabled', async (data = {}) => {

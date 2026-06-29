@@ -8,11 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { usePlaylist } from '../hooks/usePlaylist';
 import { useRoomJoin } from '../hooks/useRoomJoin';
 import { useSocket } from '../hooks/useSocket';
-
-const SOCKET_URL = (() => {
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-  return apiUrl.replace(/\/api\/?$/, '');
-})();
+import { SOCKET_URL } from '../services/socketConfig';
 
 const createClientId = () => (
   window.crypto?.randomUUID
@@ -62,7 +58,7 @@ const PlayerPage = () => {
     sessionStorage.getItem('waveio_audio_activated_' + code.toUpperCase()) === 'true'
   ));
   const [hasEverConnected, setHasEverConnected] = useState(false);
-  const { socket, isConnected } = useSocket(SOCKET_URL);
+  const { socket, isConnected } = useSocket(SOCKET_URL, Boolean(identity.clientId && identity.username));
   const {
     playlist,
     currentSong,

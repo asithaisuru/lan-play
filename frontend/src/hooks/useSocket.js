@@ -1,19 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 import io from 'socket.io-client';
+import { getSocketOptions } from '../services/socketConfig';
 
-export const useSocket = (serverUrl) => {
+export const useSocket = (serverUrl, enabled = true) => {
   const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const serverUrlRef = useRef(serverUrl);
 
   useEffect(() => {
+    if (!enabled) {
+      setSocket(null);
+      setIsConnected(false);
+      return undefined;
+    }
+
     const url = serverUrlRef.current;
-    const socketInstance = io(url, {
-      transports: ['websocket', 'polling'],
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      reconnectionAttempts: 10
-    });
+    const socketInstance = io(url, getSocketOptions(url));
 
     socketInstance.on('connect', () => setIsConnected(true));
     socketInstance.on('disconnect', () => setIsConnected(false));
@@ -27,7 +29,7 @@ export const useSocket = (serverUrl) => {
     return () => {
       socketInstance.disconnect();
     };
-  }, []);
+  }, [enabled]);
 
   return { socket, isConnected };
 };
