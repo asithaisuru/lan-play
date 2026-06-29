@@ -554,6 +554,13 @@ const NowPlaying = ({
     && !effectiveAudioReady
     && !audioActivated
   );
+  console.log('NowPlaying audio state:', {
+    isAudioDevice,
+    audioReady,
+    audioActivated,
+    effectiveAudioReady,
+    needsAudioActivation
+  });
   const renderActivationButton = (label = 'Tap to activate audio') => (
     <button
       type="button"

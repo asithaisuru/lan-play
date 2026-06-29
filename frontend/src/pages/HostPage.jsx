@@ -52,9 +52,7 @@ const HostPage = () => {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const [clientId, setClientId] = useState(() => localStorage.getItem('waveio_host_clientId'));
-  const [sessionStarted, setSessionStarted] = useState(() => (
-    localStorage.getItem('waveio_session_' + roomCode) === 'started'
-  ));
+  const [sessionStarted, setSessionStarted] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
   const copyTimerRef = useRef(null);
   const hasJoinedRef = useRef(false);
@@ -147,7 +145,6 @@ const HostPage = () => {
   }, [guestInviteLink]);
 
   const handleStartSession = () => {
-    localStorage.setItem('waveio_session_' + roomCode, 'started');
     setSessionStarted(true);
   };
 
@@ -155,7 +152,6 @@ const HostPage = () => {
     if (socket) {
       socket.emit('leave-room');
     }
-    localStorage.removeItem('waveio_session_' + roomCode);
     navigate('/dashboard');
   };
 
@@ -217,10 +213,10 @@ const HostPage = () => {
             <div>
               <p className="eyebrow">Audio setup</p>
               <h2 className="mt-1 text-xl font-black text-[#F5F5F5]">
-                Open the Player View on your speaker device
+                Music plays from this device by default.
               </h2>
               <p className="mt-2 text-sm leading-6 text-[#D0D0C8]">
-                Music plays from this device by default. Open Player View only if you want audio on a separate speaker or TV.
+                Open Player View only if you want audio on a separate speaker or TV.
               </p>
             </div>
             <Link
