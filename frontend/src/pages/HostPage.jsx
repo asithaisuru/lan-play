@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import Spinner from '../components/ui/Spinner';
+import WaveioLogo from '../components/ui/WaveioLogo';
 import HostController from '../components/HostController';
 import NowPlaying from '../components/NowPlaying';
 import PlaylistDisplay from '../components/PlaylistDisplay';
@@ -163,7 +164,7 @@ const HostPage = () => {
         {!sessionStarted ? (
           <div className="flex min-h-[60vh] items-center justify-center">
             <div className="max-w-md text-center">
-              <div className="brand-mark mb-6 text-4xl">♛</div>
+              <WaveioLogo size={64} showWordmark={false} className="mb-6 justify-center" />
               <h2 className="text-3xl font-black text-white">
                 Ready to start?
               </h2>

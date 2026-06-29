@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import WaveioLogo from '../ui/WaveioLogo';
 
 const Header = () => {
   const { user, logout } = useAuth();
@@ -14,12 +15,8 @@ const Header = () => {
   return (
     <header className="border-b border-[rgba(201,168,76,0.15)] bg-[#141414]">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 md:px-6">
-        <Link to="/" className="flex min-w-0 items-center gap-3">
-          <img src="/waveio.svg" alt="Waveio" className="h-10 w-10 flex-shrink-0 rounded-lg" />
-          <div className="min-w-0">
-            <p className="truncate text-lg font-semibold tracking-[0.02em] text-[#F5F5F5]">Waveio</p>
-            <p className="truncate text-xs uppercase text-[#888880]">A KRODOT Product</p>
-          </div>
+        <Link to="/" aria-label="Waveio home">
+          <WaveioLogo size={36} showWordmark={true} />
         </Link>
 
         <div className="flex flex-shrink-0 items-center gap-3">

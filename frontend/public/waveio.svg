@@ -1,5 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="12" fill="#0A0A0A"/>
-  <text x="32" y="23" text-anchor="middle" font-family="Georgia, serif" font-size="18" fill="#C9A84C">♛</text>
-  <text x="32" y="45" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="20" font-weight="700" fill="#C9A84C">&lt;.&gt;</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 1280" fill="none">
+  <rect width="1280" height="1280" fill="#020202"/>
+  <polygon points="264,217 385,217 385,979 264,895" fill="#C9A84C"/>
+  <rect x="424" y="503" width="114" height="537" fill="#C9A84C"/>
+  <rect x="576" y="675" width="103" height="254" fill="#C9A84C"/>
+  <rect x="717" y="503" width="114" height="537" fill="#C9A84C"/>
+  <polygon points="870,217 990,217 990,895 870,979" fill="#C9A84C"/>
 </svg>

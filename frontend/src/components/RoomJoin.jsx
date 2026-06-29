@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import WaveioLogo from './ui/WaveioLogo';
 
 const copyTextToClipboard = async (text) => {
   if (navigator.clipboard?.writeText && window.isSecureContext) {
@@ -80,9 +81,7 @@ const RoomJoin = ({ socket, onJoin, clientId, initialRoomCode = '' }) => {
     <div className="flex min-h-screen items-center justify-center p-4">
       <div className="grid w-full max-w-5xl overflow-hidden rounded-lg border border-[#C9A84C22] bg-[#141414]/95 md:grid-cols-[1.05fr_0.95fr]">
         <div className="bg-[#0A0A0A] p-8 text-[#F5F5F5] md:p-10">
-          <div className="brand-mark mb-10 h-12 w-12 text-xl">
-            ♛
-          </div>
+          <WaveioLogo size={48} showWordmark={false} className="mb-10" />
           <p className="eyebrow">Waveio LAN</p>
           <h1 className="mt-3 max-w-md text-4xl font-semibold tracking-[0.02em] md:text-5xl">Waveio</h1>
           <p className="mt-2 text-sm text-[#C9A84C]">A KRODOT Product | Crown of Technology</p>

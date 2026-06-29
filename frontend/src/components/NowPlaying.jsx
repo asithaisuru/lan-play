@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import WaveioLogo from './ui/WaveioLogo';
 
 const YOUTUBE_HOST_ID = 'lan-play-youtube-host';
 const YOUTUBE_MOUNT_ID = 'lan-play-youtube-player';
@@ -604,9 +605,7 @@ const NowPlaying = ({
     return (
       <div className="card">
         <div className="flex min-h-56 flex-col items-center justify-center rounded-lg border border-dashed border-[#C9A84C22] bg-[#0A0A0A]/60 px-6 py-10 text-center">
-          <div className="brand-mark mb-4">
-            <span className="text-xl leading-none">♛</span>
-          </div>
+          <WaveioLogo size={48} showWordmark={false} className="mb-4 justify-center" />
           <h3 className="text-lg font-bold text-white">Nothing playing yet</h3>
           <p className="mt-1 max-w-sm text-sm text-slate-400">Add a request or start the default playlist when you are ready.</p>
           {needsAudioActivation && (

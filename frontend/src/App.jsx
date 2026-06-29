@@ -6,6 +6,7 @@ import UserAddSong from "./components/UserAddSong";
 import HostController from "./components/HostController";
 import PlaylistDisplay from "./components/PlaylistDisplay";
 import NowPlaying from "./components/NowPlaying";
+import WaveioLogo from "./components/ui/WaveioLogo";
 
 const getOrCreateClientId = () => {
   const existingClientId = localStorage.getItem("lanPlayClientId");
@@ -163,9 +164,7 @@ function App() {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
         <div className="card w-full max-w-md text-center">
-          <div className="brand-mark mx-auto mb-4 h-12 w-12 text-sm">
-            ♛
-          </div>
+          <WaveioLogo size={48} showWordmark={false} className="mb-4 justify-center" />
           <h1 className="mb-2 text-2xl font-semibold text-[#F5F5F5]">Connecting to Waveio</h1>
           <p className="text-[#888880]">Starting the shared playlist session.</p>
           <div className="mx-auto mt-5 h-9 w-9 animate-spin rounded-full border-2 border-[#C9A84C22] border-t-[#C9A84C]"></div>
@@ -218,9 +217,7 @@ function App() {
         <div className="mb-6 rounded-lg border border-[#C9A84C22] bg-[#141414]/90 p-4 backdrop-blur md:p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3">
-              <div className="brand-mark h-12 w-12 text-sm">
-                ♛
-              </div>
+              <WaveioLogo size={48} showWordmark={false} />
               <div>
                 <p className="eyebrow">Waveio LAN</p>
                 <h1 className="text-2xl font-semibold tracking-[0.02em] text-[#F5F5F5]">Waveio</h1>

@@ -2,6 +2,7 @@ import { Helmet } from 'react-helmet-async';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { LogIn } from 'lucide-react';
 import Footer from '../components/layout/Footer';
+import WaveioLogo from '../components/ui/WaveioLogo';
 import { useAuth } from '../context/AuthContext';
 
 const LoginPage = () => {
@@ -26,7 +27,7 @@ const LoginPage = () => {
       </Helmet>
       <main className="flex flex-1 items-center justify-center px-4 py-10">
         <div className="w-full max-w-md rounded-lg border border-[#C9A84C22] bg-[#141414] p-8 text-center">
-          <img src="/waveio.svg" alt="Waveio" className="mx-auto h-14 w-14 rounded-lg" />
+          <WaveioLogo size={56} showWordmark={false} className="justify-center" />
           <h1 className="mt-6 text-3xl font-semibold">Sign in to Waveio</h1>
           <p className="mt-2 text-sm text-[#888880]">Create and manage your music rooms</p>
           {searchParams.get('error') && (

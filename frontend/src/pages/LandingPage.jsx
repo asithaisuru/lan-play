@@ -6,6 +6,7 @@ import BlurText from '../components/ui/BlurText';
 import FadeContent from '../components/ui/FadeContent';
 import GradientText from '../components/ui/GradientText';
 import Magnet from '../components/ui/Magnet';
+import WaveioLogo from '../components/ui/WaveioLogo';
 
 const steps = [
   {
@@ -78,8 +79,7 @@ const pricingPlans = [
 
 const Logo = () => (
   <Link to="/" className="inline-flex items-center gap-3 text-[#F5F5F5]" aria-label="Waveio home">
-    <img src="/waveio.svg" alt="Waveio" className="h-10 w-10 rounded-lg" />
-    <span className="text-lg font-black">Waveio</span>
+    <WaveioLogo size={40} showWordmark={true} />
   </Link>
 );
 
@@ -126,9 +126,7 @@ const LandingPage = () => (
 
           <div className="mx-auto flex max-w-5xl flex-1 flex-col items-center justify-center pb-24 text-center">
             <FadeContent>
-              <div className="inline-flex rounded-full border border-[#C9A84C] bg-[#0A0A0A]/70 px-4 py-2 text-sm font-bold text-[#C9A84C]">
-                KRODOT — Crown of Technology
-              </div>
+              <WaveioLogo size={64} showWordmark={false} className="justify-center" />
             </FadeContent>
 
             <BlurText
@@ -285,7 +283,7 @@ const LandingPage = () => (
     <footer className="border-t border-[rgba(201,168,76,0.15)] bg-[#0A0A0A] px-4 py-8 text-[#888880] md:px-8">
       <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-[1fr_auto_1fr] md:items-center">
         <div className="flex items-center gap-3">
-          <img src="/waveio.svg" alt="Waveio" className="h-9 w-9 rounded-lg" />
+          <WaveioLogo size={32} showWordmark={false} />
           <span>A KRODOT Product</span>
         </div>
         <div className="flex flex-wrap justify-start gap-5 md:justify-center">

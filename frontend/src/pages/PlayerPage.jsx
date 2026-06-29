@@ -3,6 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import { Maximize2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Spinner from '../components/ui/Spinner';
+import WaveioLogo from '../components/ui/WaveioLogo';
 import NowPlaying from '../components/NowPlaying';
 import { useAuth } from '../context/AuthContext';
 import { usePlaylist } from '../hooks/usePlaylist';
@@ -119,7 +120,7 @@ const PlayerPage = () => {
       <main className="flex min-h-screen flex-col px-4 py-4 sm:px-6">
         <header className="flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[#C9A84C22] pb-4">
           <div className="min-w-0">
-            <p className="eyebrow">Waveio Player View</p>
+            <WaveioLogo size={32} showWordmark={true} />
             <div className="mt-1 flex flex-wrap items-center gap-3">
               <h1 className="font-mono text-2xl font-black text-[#F5F5F5]">{roomCode}</h1>
               {isPlaying && (

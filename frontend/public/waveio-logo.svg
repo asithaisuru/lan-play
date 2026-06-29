@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 1280 1280"
+     fill="none">
+  <rect width="1280" height="1280" fill="#020202"/>
+  <defs>
+    <linearGradient id="waveioGold" x1="264" y1="216" x2="990" y2="1040" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F0D05A"/>
+      <stop offset="1" stop-color="#C9A84C"/>
+    </linearGradient>
+  </defs>
+  <polygon points="264,217 385,217 385,979 264,895" fill="url(#waveioGold)"/>
+  <rect x="424" y="503" width="114" height="537" fill="url(#waveioGold)"/>
+  <rect x="576" y="675" width="103" height="254" fill="url(#waveioGold)"/>
+  <rect x="717" y="503" width="114" height="537" fill="url(#waveioGold)"/>
+  <polygon points="870,217 990,217 990,895 870,979" fill="url(#waveioGold)"/>
+</svg>
