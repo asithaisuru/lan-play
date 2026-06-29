@@ -117,7 +117,12 @@ const AddToRoomPanel = ({ playlist }) => {
         const response = await api.get('/rooms');
         const nextRooms = response.data?.rooms || [];
         setRooms(nextRooms);
-        setRoomCode(nextRooms[0]?.roomCode || '');
+        setRoomCode(
+          nextRooms[0]?.roomCode
+          || nextRooms[0]?.room_code
+          || nextRooms[0]?.code
+          || ''
+        );
       } finally {
         setLoading(false);
       }
@@ -144,7 +149,15 @@ const AddToRoomPanel = ({ playlist }) => {
   return (
     <div className="flex flex-col gap-2 sm:flex-row">
       <select value={roomCode} onChange={(event) => setRoomCode(event.target.value)} className="input sm:max-w-xs" disabled={loading}>
-        {rooms.map((room) => <option key={room.roomCode} value={room.roomCode}>{room.name || room.playlistName} · {room.roomCode}</option>)}
+        {rooms.map((room) => {
+          const code = room.roomCode || room.room_code || room.code;
+          const name = room.name || room.playlistName || room.playlist_name || 'Untitled room';
+          return (
+            <option key={code} value={code}>
+              {name} · {code}
+            </option>
+          );
+        })}
       </select>
       <button type="button" onClick={handleAdd} className="btn btn-primary" disabled={!roomCode}>Add to my room</button>
       {message && <p className="self-center text-sm text-[#C9A84C]">{message}</p>}
@@ -164,6 +177,7 @@ const PlaylistDetailPage = () => {
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [addingSong, setAddingSong] = useState(false);
   const [songError, setSongError] = useState('');
+  const [recalculating, setRecalculating] = useState(false);
 
   const loadPlaylist = useCallback(async () => {
     setLoading(true);
@@ -224,6 +238,18 @@ const PlaylistDetailPage = () => {
     }
   };
 
+  const handleRecalculate = async () => {
+    setRecalculating(true);
+    try {
+      await api.patch(`/playlists/${playlist.id}/recalculate`);
+      await loadPlaylist();
+    } catch {
+      // Duration recalculation is best-effort; the user can try again later.
+    } finally {
+      setRecalculating(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0A0A0A]">
@@ -271,16 +297,30 @@ const PlaylistDetailPage = () => {
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              {isOwner ? (
-                <>
-                  <button type="button" onClick={() => setEditOpen(true)} className="btn btn-secondary">Edit playlist</button>
-                  <button type="button" onClick={handleDelete} className="btn btn-danger">Delete</button>
-                </>
-              ) : (
+              <div className="flex flex-col gap-3">
+                {isOwner && (
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => setEditOpen(true)} className="btn btn-secondary">Edit playlist</button>
+                    <button type="button" onClick={handleDelete} className="btn btn-danger">Delete</button>
+                  </div>
+                )}
                 <AddToRoomPanel playlist={playlist} />
-              )}
+              </div>
             </div>
           </div>
+          {isOwner && playlist.totalDuration === 0 && playlist.songCount > 0 && (
+            <div className="mt-3 rounded-lg border border-[#C9A84C22] bg-[#1A1810] px-3 py-2 text-sm text-[#888880]">
+              Song durations not yet calculated.
+              <button
+                type="button"
+                onClick={handleRecalculate}
+                disabled={recalculating}
+                className="ml-2 text-[#C9A84C] underline transition hover:text-[#F0C040] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {recalculating ? 'Calculating...' : 'Calculate now'}
+              </button>
+            </div>
+          )}
         </section>
 
         <section className="mt-6 rounded-xl border border-[#C9A84C22] bg-[#141414] p-5">

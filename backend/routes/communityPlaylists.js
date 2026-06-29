@@ -37,6 +37,33 @@ const validateTags = (tags) => (
   && tags.every((tag) => typeof tag === 'string' && tag.trim().length > 0)
 );
 
+const fetchYouTubeDuration = async (youtubeId) => {
+  const apiKey = process.env.YOUTUBE_API_KEY;
+  if (!apiKey) return 0;
+
+  try {
+    const url = new URL('https://www.googleapis.com/youtube/v3/videos');
+    url.searchParams.set('id', youtubeId);
+    url.searchParams.set('part', 'contentDetails');
+    url.searchParams.set('key', apiKey);
+
+    const response = await fetch(url.toString());
+    const data = await response.json();
+    const iso = data.items?.[0]?.contentDetails?.duration;
+    if (!iso) return 0;
+
+    const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+    if (!match) return 0;
+
+    const hours = Number(match[1] || 0);
+    const minutes = Number(match[2] || 0);
+    const seconds = Number(match[3] || 0);
+    return (hours * 3600) + (minutes * 60) + seconds;
+  } catch {
+    return 0;
+  }
+};
+
 const getAuthUser = async (req) => {
   const token = req.cookies?.waveio_token;
   if (!token) return null;
@@ -188,11 +215,12 @@ router.post('/:id/songs', requireAuth, async (req, res) => {
     const youtubeId = String(req.body?.youtubeId || '').trim();
     const title = String(req.body?.title || '').trim();
     const thumbnail = String(req.body?.thumbnail || '').trim();
-    const duration = Number(req.body?.duration) || 0;
 
     if (!youtubeId || !title) {
       return res.status(400).json({ error: 'YouTube ID and title are required' });
     }
+
+    const duration = await fetchYouTubeDuration(youtubeId);
 
     const playlist = await addSongToCommunityPlaylist({
       playlistId: req.params.id,
@@ -206,6 +234,72 @@ router.post('/:id/songs', requireAuth, async (req, res) => {
     return res.status(201).json({ playlist });
   } catch (error) {
     return sendError(res, error, 'Could not add song');
+  }
+});
+
+router.patch('/:id/recalculate', requireAuth, async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const { rows: playlistRows } = await client.query(
+      'SELECT id FROM community_playlists WHERE id = $1::uuid AND host_id = $2::uuid',
+      [req.params.id, req.user.id]
+    );
+
+    if (!playlistRows[0]) {
+      const error = new Error('Playlist not found');
+      error.status = 404;
+      throw error;
+    }
+
+    const { rows: songRows } = await client.query(
+      `SELECT id, youtube_id
+       FROM community_playlist_songs
+       WHERE playlist_id = $1::uuid
+         AND (duration = 0 OR duration IS NULL)
+       ORDER BY position ASC`,
+      [req.params.id]
+    );
+
+    let updatedCount = 0;
+    for (const song of songRows) {
+      const duration = await fetchYouTubeDuration(song.youtube_id);
+      if (duration > 0) {
+        await client.query(
+          `UPDATE community_playlist_songs
+           SET duration = $1::integer
+           WHERE id = $2::uuid`,
+          [duration, song.id]
+        );
+        updatedCount += 1;
+      }
+    }
+
+    await client.query(
+      `UPDATE community_playlists cp
+       SET song_count = stats.song_count,
+           total_duration = stats.total_duration,
+           updated_at = NOW()
+       FROM (
+         SELECT COUNT(*)::integer AS song_count,
+                COALESCE(SUM(duration), 0)::integer AS total_duration
+         FROM community_playlist_songs
+         WHERE playlist_id = $1::uuid
+       ) stats
+       WHERE cp.id = $1::uuid`,
+      [req.params.id]
+    );
+
+    await client.query('COMMIT');
+    const playlist = await getCommunityPlaylist(req.params.id);
+    return res.json({ playlist, updatedCount });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    return sendError(res, error, 'Could not recalculate durations');
+  } finally {
+    client.release();
   }
 });
 
