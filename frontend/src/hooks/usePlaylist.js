@@ -12,6 +12,14 @@ const findCurrentSong = (playlist) => {
   return allSongs.find((song) => song._id === playlist.currentPlaying) || null;
 };
 
+const getServerCorrectedTime = (currentTime, serverTimestamp) => {
+  const rawTime = Number(currentTime) || 0;
+  if (!serverTimestamp) return rawTime;
+
+  const serverAge = Math.max(0, (Date.now() - serverTimestamp) / 1000);
+  return rawTime + serverAge;
+};
+
 export const usePlaylist = (socket, clientId) => {
   const [playlist, setPlaylist] = useState(null);
   const [currentSong, setCurrentSong] = useState(null);
@@ -54,6 +62,10 @@ export const usePlaylist = (socket, clientId) => {
     const handlePlaylistState = (data) => {
       applyPlaylist(data.playlist);
       setIsHost(Boolean(data.isHost));
+
+      if (data.playlist?.isPlaying && data.serverTimestamp) {
+        setCurrentTime(getServerCorrectedTime(data.playlist.currentTime, data.serverTimestamp));
+      }
     };
 
     const handlePlaylistUpdated = (data) => {
@@ -82,12 +94,13 @@ export const usePlaylist = (socket, clientId) => {
     };
 
     const handlePlaybackProgress = (data) => {
-      setCurrentTime(data.currentTime || 0);
       if (data.playlist) {
         applyPlaylist(data.playlist);
       } else if (data.duration && currentSong?._id === data.songId) {
         setCurrentSong((song) => song ? { ...song, duration: data.duration } : song);
       }
+
+      setCurrentTime(getServerCorrectedTime(data.currentTime, data.serverTimestamp));
     };
 
     const handleSongChanged = (data) => {

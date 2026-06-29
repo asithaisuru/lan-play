@@ -525,7 +525,7 @@ const NowPlaying = ({
       setKnownDuration(duration);
 
       tick += 1;
-      if (socket && tick % 5 === 0) {
+      if (socket && tick % 2 === 0) {
         socket.emit('playback-progress', {
           currentTime: current,
           duration

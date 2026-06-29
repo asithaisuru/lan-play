@@ -285,7 +285,8 @@ export const initializePlaylistSocket = (io) => {
         const playlist = await getPlaylistState(roomCode);
         socket.emit('playlist-state', {
           playlist,
-          isHost: playlist.ownerClientId === clientId || playlist.ownerSocketId === socket.id
+          isHost: playlist.ownerClientId === clientId || playlist.ownerSocketId === socket.id,
+          serverTimestamp: Date.now()
         });
 
         socket.to(roomCode).emit('user-joined', {
@@ -456,7 +457,8 @@ export const initializePlaylistSocket = (io) => {
         songId: playlist.currentPlaying,
         currentTime: Number.isFinite(currentTime) ? currentTime : (updatedPlaylist.currentPosition ?? 0),
         duration: Number.isFinite(duration) ? duration : updatedPlaylist.currentSong?.duration || 0,
-        playlist: updatedPlaylist
+        playlist: updatedPlaylist,
+        serverTimestamp: Date.now()
       });
     });
 
