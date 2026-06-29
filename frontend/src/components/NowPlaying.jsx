@@ -228,8 +228,9 @@ const NowPlaying = ({
   const requestNextSong = useCallback((reason = 'next') => {
     const latest = latestStateRef.current;
     const activeSong = latest.currentSong;
+    const canAdvance = latest.isAudioDevice || latest.isHost;
 
-    if (!latest.socket || !latest.isAudioDevice || !activeSong || advanceInFlightRef.current) return;
+    if (!latest.socket || !canAdvance || !activeSong || advanceInFlightRef.current) return;
 
     advanceInFlightRef.current = true;
     latest.socket.timeout(10000).emit('next-song', { reason, songId: activeSong._id }, (timeoutError, ack) => {
@@ -389,9 +390,10 @@ const NowPlaying = ({
           // Song ended - play next song
           if (event.data === window.YT.PlayerState.ENDED) {
             hasAnnouncedRef.current = false;
+            const canAdvance = latest.isAudioDevice || latest.isHost;
             
             // Automatically play next song
-            if (latest.socket && latest.isAudioDevice && activeSong?._id === playerSongIdRef.current) {
+            if (latest.socket && canAdvance && activeSong?._id === playerSongIdRef.current) {
               requestNextSong('ended');
             }
           }
@@ -405,9 +407,10 @@ const NowPlaying = ({
           console.error('YouTube player error:', error);
           setIsPlayerReady(false);
           const latest = latestStateRef.current;
+          const canAdvance = latest.isAudioDevice || latest.isHost;
           
           // If there's an error with the current song, skip to next
-          if (latest.socket && latest.isAudioDevice) {
+          if (latest.socket && canAdvance) {
             requestNextSong('player-error');
           }
         }

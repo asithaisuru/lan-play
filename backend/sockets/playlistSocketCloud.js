@@ -66,8 +66,19 @@ export const initializePlaylistSocket = (io) => {
 
     const isHost = playlist.ownerClientId === socket.clientId || playlist.ownerSocketId === socket.id;
     const isAudioDevice = playlist.audioClientId === socket.clientId || playlist.audioSocketId === socket.id;
+
+    console.log('requireAudioDevice check:', {
+      socketClientId: socket.clientId,
+      socketId: socket.id,
+      playlistAudioClientId: playlist.audioClientId,
+      playlistAudioSocketId: playlist.audioSocketId,
+      playlistOwnerClientId: playlist.ownerClientId,
+      isHost,
+      isAudioDevice
+    });
+
     if (!isHost && !isAudioDevice) {
-      socket.emit('error', { message: 'Only the assigned audio device can report playback' });
+      socket.emit('error', { message: 'Only the assigned audio device can advance playback' });
       return null;
     }
 
@@ -255,6 +266,7 @@ export const initializePlaylistSocket = (io) => {
           || shouldBackfillOwner;
 
         await addOrUpdateRoomUser({ roomCode, socketId: socket.id, clientId, username, isHost: shouldBecomeHost });
+        let audioDeviceAssignedOnJoin = false;
         if (shouldBecomeHost) {
           const pendingReassignment = pendingHostReassignments.get(roomCode);
           if (pendingReassignment) {
@@ -264,16 +276,23 @@ export const initializePlaylistSocket = (io) => {
           await setRoomOwner(roomCode, socket.id, clientId);
 
           const currentAudioClientId = room.audio_client_id;
-          const audioUserConnected = currentAudioClientId
-            ? await getRoomUserByClientId(roomCode, currentAudioClientId)
-            : null;
+          const isAudioSelf = currentAudioClientId === clientId;
 
-          if (!audioUserConnected || currentAudioClientId === clientId) {
+          if (!currentAudioClientId || isAudioSelf) {
             await setRoomAudioDevice(roomCode, socket.id, clientId);
+            audioDeviceAssignedOnJoin = true;
+            console.log('Auto-assigned host as audio device:', clientId);
+          } else {
+            const audioUserConnected = await getRoomUserByClientId(roomCode, currentAudioClientId);
+            if (!audioUserConnected) {
+              await setRoomAudioDevice(roomCode, socket.id, clientId);
+              audioDeviceAssignedOnJoin = true;
+              console.log('Reassigned audio device to host:', clientId);
+            }
           }
         }
 
-        if (!room.audio_client_id && !room.audio_socket_id) {
+        if (!audioDeviceAssignedOnJoin && !room.audio_client_id && !room.audio_socket_id) {
           await setRoomAudioDevice(roomCode, shouldBecomeHost ? socket.id : room.owner_socket_id, shouldBecomeHost ? clientId : room.owner_client_id);
         }
 

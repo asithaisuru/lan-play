@@ -335,7 +335,7 @@ export const updateSongTiming = async ({ songId, duration, currentTime, roomCode
 
   if (songId && Number.isFinite(currentTime)) {
     await pool.query(
-      'UPDATE songs SET current_time = $1 WHERE id = $2',
+      'UPDATE songs SET "current_time" = $1 WHERE id = $2::uuid',
       [currentTime, songId]
     );
   }
