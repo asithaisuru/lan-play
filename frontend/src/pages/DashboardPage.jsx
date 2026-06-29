@@ -170,6 +170,13 @@ const DashboardPage = () => {
                 Create room
               </button>
             </form>
+            <div className="mt-5 rounded-lg border border-[#C9A84C22] bg-[#0A0A0A] p-4">
+              <h3 className="font-semibold">My Playlists</h3>
+              <p className="mt-2 text-sm leading-6 text-[#888880]">Create and manage your playlist library</p>
+              <Link to="/dashboard/playlists" className="btn btn-secondary mt-4 w-full">
+                Open playlists
+              </Link>
+            </div>
           </section>
         </div>
       </main>

@@ -13,8 +13,11 @@ import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import NotFoundPage from './pages/NotFoundPage';
 import PlayerPage from './pages/PlayerPage';
+import PlaylistDetailPage from './pages/PlaylistDetailPage';
+import PlaylistsPage from './pages/PlaylistsPage';
 import PricingPage from './pages/PricingPage';
 import QueuePage from './pages/QueuePage';
+import MyPlaylistsPage from './pages/MyPlaylistsPage';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -26,11 +29,21 @@ createRoot(document.getElementById('root')).render(
             <Route path="/login" element={<LoginPage />} />
             <Route path="/auth/callback" element={<AuthCallbackPage />} />
             <Route path="/pricing" element={<PricingPage />} />
+            <Route path="/playlists" element={<PlaylistsPage />} />
+            <Route path="/playlists/:id" element={<PlaylistDetailPage />} />
             <Route
               path="/dashboard"
               element={(
                 <ProtectedRoute>
                   <DashboardPage />
+                </ProtectedRoute>
+              )}
+            />
+            <Route
+              path="/dashboard/playlists"
+              element={(
+                <ProtectedRoute>
+                  <MyPlaylistsPage />
                 </ProtectedRoute>
               )}
             />

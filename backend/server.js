@@ -7,6 +7,7 @@ import { networkInterfaces } from 'os'; // Import from 'os' directly
 import cookieParser from 'cookie-parser';
 import passport from 'passport';
 import authRouter from './routes/auth.js';
+import communityPlaylistsRouter from './routes/communityPlaylists.js';
 import roomsRouter from './routes/rooms.js';
 import youtubeRouter from './routes/youtube.js';
 
@@ -207,6 +208,7 @@ app.get('/api/network-info', (req, res) => {
 });
 
 app.use('/api/auth', authRouter);
+app.use('/api/playlists', communityPlaylistsRouter);
 app.use('/api/rooms', roomsRouter);
 app.use('/api/youtube', youtubeRouter);
 

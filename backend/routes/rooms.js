@@ -20,6 +20,7 @@ const mapRoom = (row) => row ? ({
   isPlaying: Boolean(row.is_playing),
   currentPosition: Number(row.current_position) || 0,
   currentTime: Number(row.current_position) || 0,
+  defaultSongCount: Number(row.default_song_count) || 0,
   volume: Number(row.volume) || 100,
   announcementEnabled: Boolean(row.announcement_enabled),
   defaultIndex: Number(row.default_index) || 0,
@@ -93,8 +94,15 @@ router.get('/public/:code', async (req, res) => {
 
 router.get('/', requireAuth, async (req, res) => {
   const { rows } = await pool.query(
-    `SELECT * FROM rooms
-     WHERE host_id = $1 AND status = 'active'
+    `SELECT rooms.*,
+            (
+              SELECT COUNT(*)::int
+              FROM songs
+              WHERE songs.room_code = rooms.room_code
+                AND songs.source = 'default'
+            ) AS default_song_count
+     FROM rooms
+     WHERE rooms.host_id = $1 AND rooms.status = 'active'
      ORDER BY created_at DESC`,
     [req.user.id]
   );

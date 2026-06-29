@@ -20,6 +20,9 @@ const Header = () => {
         </Link>
 
         <div className="flex flex-shrink-0 items-center gap-3">
+          <Link to="/playlists" className="hidden text-sm font-semibold text-[#D0D0C8] transition hover:text-[#C9A84C] sm:inline-flex">
+            Playlists
+          </Link>
           {user ? (
             <>
               {user.avatar ? (
