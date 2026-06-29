@@ -21,7 +21,8 @@ const QueuePage = () => {
   const roomCode = code.toUpperCase();
   const clientId = sessionStorage.getItem('waveio_client_id');
   const username = sessionStorage.getItem(`waveio_username_${roomCode}`);
-  const joinedRef = useRef(false);
+  const hasJoinedRef = useRef(false);
+  const joinedRoomRef = useRef('');
   const { socket, isConnected } = useSocket(SOCKET_URL);
   const {
     playlist,
@@ -36,10 +37,37 @@ const QueuePage = () => {
   } = usePlaylist(socket, clientId);
 
   useEffect(() => {
-    if (!socket || !isConnected || !clientId || !username || joinedRef.current) return;
+    if (
+      !socket ||
+      !isConnected ||
+      !clientId ||
+      !username ||
+      hasJoinedRef.current
+    ) return;
+
+    hasJoinedRef.current = true;
+    joinedRoomRef.current = roomCode;
+
     socket.emit('join-room', { roomCode, username, clientId });
-    joinedRef.current = true;
   }, [socket, isConnected, clientId, username, roomCode]);
+
+  // Handle socket reconnection
+  useEffect(() => {
+    if (!socket) return undefined;
+
+    const handleReconnect = () => {
+      if (hasJoinedRef.current && joinedRoomRef.current && clientId) {
+        socket.emit('join-room', {
+          roomCode: joinedRoomRef.current,
+          username,
+          clientId
+        });
+      }
+    };
+
+    socket.on('connect', handleReconnect);
+    return () => socket.off('connect', handleReconnect);
+  }, [socket, clientId, username]);
 
   if (!clientId || !username) {
     return (

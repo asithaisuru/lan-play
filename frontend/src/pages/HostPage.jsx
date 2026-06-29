@@ -53,8 +53,9 @@ const HostPage = () => {
   const { user, loading } = useAuth();
   const [clientId, setClientId] = useState(() => localStorage.getItem('waveio_host_clientId'));
   const [copiedInvite, setCopiedInvite] = useState(false);
-  const joinedRef = useRef(false);
   const copyTimerRef = useRef(null);
+  const hasJoinedRef = useRef(false);
+  const joinedRoomRef = useRef('');
   const { socket, isConnected } = useSocket(SOCKET_URL);
   const {
     playlist,
@@ -91,23 +92,42 @@ const HostPage = () => {
   }, [loading, user]);
 
   useEffect(() => {
-    joinedRef.current = false;
-  }, [clientId, roomCode, username]);
+    if (
+      !socket ||
+      !isConnected ||
+      !clientId ||
+      !username ||
+      !user ||
+      hasJoinedRef.current
+    ) return;
 
-  useEffect(() => {
-    if (!isConnected) {
-      joinedRef.current = false;
-    }
-  }, [isConnected]);
+    hasJoinedRef.current = true;
+    joinedRoomRef.current = roomCode;
 
-  useEffect(() => {
-    if (!socket || !isConnected || !clientId || !username || !user || joinedRef.current) return;
     socket.emit('join-room', { roomCode, username, clientId });
-    joinedRef.current = true;
   }, [clientId, isConnected, roomCode, socket, user, username]);
 
-  useEffect(() => () => {
-    clearTimeout(copyTimerRef.current);
+  // Handle socket reconnection without re-joining
+  useEffect(() => {
+    if (!socket) return undefined;
+
+    const handleReconnect = () => {
+      if (hasJoinedRef.current && joinedRoomRef.current) {
+        socket.emit('join-room', {
+          roomCode: joinedRoomRef.current,
+          username,
+          clientId
+        });
+      }
+    };
+
+    socket.on('connect', handleReconnect);
+    return () => socket.off('connect', handleReconnect);
+  }, [socket, username, clientId]);
+
+  useEffect(() => {
+    const timer = copyTimerRef.current;
+    return () => clearTimeout(timer);
   }, []);
 
   const handleCopyInvite = useCallback(async () => {

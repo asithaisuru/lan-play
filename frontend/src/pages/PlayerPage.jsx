@@ -59,7 +59,8 @@ const PlayerPage = () => {
   const [audioActivated, setAudioActivated] = useState(() => (
     sessionStorage.getItem('waveio_audio_activated_' + code.toUpperCase()) === 'true'
   ));
-  const joinedRef = useRef(false);
+  const hasJoinedRef = useRef(false);
+  const joinedRoomRef = useRef('');
   const { socket, isConnected } = useSocket(SOCKET_URL);
   const {
     playlist,
@@ -86,18 +87,41 @@ const PlayerPage = () => {
   }, [loading, roomCode, user]);
 
   useEffect(() => {
-    joinedRef.current = false;
-  }, [socket]);
+    if (
+      !socket ||
+      !isConnected ||
+      !identity.clientId ||
+      !identity.username ||
+      hasJoinedRef.current
+    ) return;
 
-  useEffect(() => {
-    if (!socket || !isConnected || !identity.clientId || !identity.username || joinedRef.current) return;
+    hasJoinedRef.current = true;
+    joinedRoomRef.current = roomCode;
+
     socket.emit('join-room', {
       roomCode,
       username: identity.username,
       clientId: identity.clientId
     });
-    joinedRef.current = true;
   }, [identity.clientId, identity.username, isConnected, roomCode, socket]);
+
+  // Handle socket reconnection
+  useEffect(() => {
+    if (!socket) return undefined;
+
+    const handleReconnect = () => {
+      if (hasJoinedRef.current && joinedRoomRef.current && identity.clientId) {
+        socket.emit('join-room', {
+          roomCode: joinedRoomRef.current,
+          username: identity.username,
+          clientId: identity.clientId
+        });
+      }
+    };
+
+    socket.on('connect', handleReconnect);
+    return () => socket.off('connect', handleReconnect);
+  }, [socket, identity.clientId, identity.username]);
 
   const openFullscreen = async () => {
     try {
