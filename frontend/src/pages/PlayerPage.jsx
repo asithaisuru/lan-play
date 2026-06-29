@@ -60,6 +60,7 @@ const PlayerPage = () => {
   const [audioActivated, setAudioActivated] = useState(() => (
     sessionStorage.getItem('waveio_audio_activated_' + code.toUpperCase()) === 'true'
   ));
+  const [hasEverConnected, setHasEverConnected] = useState(false);
   const hasJoinedRef = useRef(false);
   const joinedRoomRef = useRef('');
   const { socket, isConnected } = useSocket(SOCKET_URL);
@@ -83,6 +84,12 @@ const PlayerPage = () => {
   ), [playlist]);
 
   useEffect(() => {
+    if (isConnected) {
+      setHasEverConnected(true);
+    }
+  }, [isConnected]);
+
+  useEffect(() => {
     if (loading) return;
     setIdentity(getPlayerIdentity({ roomCode, user }));
   }, [loading, roomCode, user]);
@@ -102,7 +109,8 @@ const PlayerPage = () => {
     socket.emit('join-room', {
       roomCode,
       username: identity.username,
-      clientId: identity.clientId
+      clientId: identity.clientId,
+      isPlayerDevice: true
     });
   }, [identity.clientId, identity.username, isConnected, roomCode, socket]);
 
@@ -115,7 +123,8 @@ const PlayerPage = () => {
         socket.emit('join-room', {
           roomCode: joinedRoomRef.current,
           username: identity.username,
-          clientId: identity.clientId
+          clientId: identity.clientId,
+          isPlayerDevice: true
         });
       }
     };
@@ -193,7 +202,7 @@ const PlayerPage = () => {
           </div>
         </header>
 
-        {loading || !identity.clientId || !isConnected ? (
+        {!hasEverConnected && (!identity.clientId || !isConnected) ? (
           <div className="flex flex-1 items-center justify-center">
             <Spinner label="Connecting player view" />
           </div>

@@ -222,6 +222,7 @@ export const initializePlaylistSocket = (io) => {
         const roomCode = normalizeRoomCode(data?.roomCode);
         const username = normalizeUsername(data?.username);
         const clientId = normalizeClientId(data?.clientId);
+        const isPlayerDevice = Boolean(data?.isPlayerDevice);
 
         if (!roomCode || !username || !clientId) {
           socket.emit('error', { message: 'Room code, username, and client ID are required' });
@@ -230,6 +231,13 @@ export const initializePlaylistSocket = (io) => {
 
         let room = await getRoom(roomCode);
         if (!room) {
+          if (isPlayerDevice) {
+            socket.emit('error', {
+              message: 'Room not found. Ask the host to create a room first.'
+            });
+            return;
+          }
+
           console.log(`Creating new room: ${roomCode}`);
           await createRoom({ roomCode, ownerSocketId: socket.id, ownerClientId: clientId, username });
           room = await getRoom(roomCode);

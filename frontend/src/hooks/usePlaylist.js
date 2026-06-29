@@ -154,7 +154,9 @@ export const usePlaylist = (socket, clientId) => {
     };
 
     const handleError = (data) => {
-      alert(data.message);
+      console.error('Room socket error:', data.message);
+      // Only show UI error for critical messages.
+      // Do not use alert() because it blocks the UI and can interrupt audio.
     };
 
     socket.on('playlist-state', handlePlaylistState);
