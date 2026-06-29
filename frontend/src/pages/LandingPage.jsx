@@ -1,12 +1,13 @@
 import { Helmet } from 'react-helmet-async';
-import { Link } from 'react-router-dom';
-import { ChevronDown } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ChevronDown, LogOut } from 'lucide-react';
 import Aurora from '../components/ui/Aurora';
 import BlurText from '../components/ui/BlurText';
 import FadeContent from '../components/ui/FadeContent';
 import GradientText from '../components/ui/GradientText';
 import Magnet from '../components/ui/Magnet';
 import WaveioLogo from '../components/ui/WaveioLogo';
+import { useAuth } from '../context/AuthContext';
 
 const steps = [
   {
@@ -91,38 +92,88 @@ const MagneticLink = ({ to, children, className }) => (
   </Magnet>
 );
 
-const LandingPage = () => (
-  <div className="min-h-screen bg-[#0A0A0A] text-[#F5F5F5]">
-    <Helmet>
-      <title>Waveio — Collaborative Music Queue for Parties and Events</title>
-      <meta
-        name="description"
-        content="Let your crowd control the music. Create a shared playlist for your party, bar, or event. Free to start."
-      />
-    </Helmet>
+const LandingPage = () => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const displayName = user?.name || user?.email || 'Host';
+  const primaryCta = user
+    ? { to: '/dashboard', label: 'Go to dashboard' }
+    : { to: '/login', label: 'Start for free' };
+  const finalCta = user
+    ? { to: '/dashboard', label: 'Open dashboard' }
+    : { to: '/login', label: 'Create your first room' };
 
-    <main>
-      <section className="relative flex min-h-screen overflow-hidden bg-[#0A0A0A]">
-        <Aurora colorStops={['#4A3510', '#C9A84C', '#7A5A18']} amplitude={0.55} blend={0.42} />
+  const handleLogout = () => {
+    logout(() => navigate('/login'));
+  };
 
-        <div className="relative z-10 flex min-h-screen w-full flex-col px-4 md:px-8">
-          <nav className="mx-auto flex w-full max-w-7xl items-center justify-between py-6">
-            <Logo />
-            <div className="flex items-center gap-4 text-sm font-semibold text-[#888880] md:gap-7">
-              <a href="#features" className="hidden transition hover:text-[#F5F5F5] sm:inline-flex">
-                Features
-              </a>
-              <a href="#pricing" className="hidden transition hover:text-[#F5F5F5] sm:inline-flex">
-                Pricing
-              </a>
-              <Link
-                to="/login"
-                className="rounded-full border border-[#C9A84C] px-5 py-2.5 font-bold text-[#C9A84C] transition hover:bg-[#C9A84C] hover:text-[#0A0A0A]"
-              >
-                Login
-              </Link>
-            </div>
-          </nav>
+  return (
+    <div className="min-h-screen bg-[#0A0A0A] text-[#F5F5F5]">
+      <Helmet>
+        <title>Waveio — Collaborative Music Queue for Parties and Events</title>
+        <meta
+          name="description"
+          content="Let your crowd control the music. Create a shared playlist for your party, bar, or event. Free to start."
+        />
+      </Helmet>
+
+      <main>
+        <section className="relative flex min-h-screen overflow-hidden bg-[#0A0A0A]">
+          <Aurora colorStops={['#4A3510', '#C9A84C', '#7A5A18']} amplitude={0.55} blend={0.42} />
+
+          <div className="relative z-10 flex min-h-screen w-full flex-col px-4 md:px-8">
+            <nav className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 py-6">
+              <Logo />
+              <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 text-sm font-semibold text-[#888880] sm:flex-nowrap md:gap-4">
+                <a href="#features" className="hidden transition hover:text-[#F5F5F5] lg:inline-flex">
+                  Features
+                </a>
+                <a href="#pricing" className="hidden transition hover:text-[#F5F5F5] sm:inline-flex">
+                  Pricing
+                </a>
+                {user ? (
+                  <>
+                    <Link to="/playlists" className="hidden transition hover:text-[#F5F5F5] md:inline-flex">
+                      Playlists
+                    </Link>
+                    <Link
+                      to="/dashboard"
+                      className="rounded-full border border-[#C9A84C] px-4 py-2.5 font-bold text-[#C9A84C] transition hover:bg-[#C9A84C] hover:text-[#0A0A0A]"
+                    >
+                      Dashboard
+                    </Link>
+                    <div className="hidden min-w-0 items-center gap-2 sm:flex">
+                      {user.avatar ? (
+                        <img src={user.avatar} alt={displayName} className="h-9 w-9 rounded-full object-cover" />
+                      ) : (
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[#C9A84C44] bg-[#1A1810] text-sm font-semibold text-[#C9A84C]">
+                          {displayName.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <span className="hidden max-w-32 truncate text-sm font-medium text-[#F5F5F5] lg:inline">
+                        {displayName}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#C9A84C22] bg-[#0A0A0A] text-[#D0D0C8] transition hover:border-[#C9A84C66] hover:text-[#F5F5F5]"
+                      title="Log out"
+                      aria-label="Log out"
+                    >
+                      <LogOut size={17} />
+                    </button>
+                  </>
+                ) : (
+                  <Link
+                    to="/login"
+                    className="rounded-full border border-[#C9A84C] px-5 py-2.5 font-bold text-[#C9A84C] transition hover:bg-[#C9A84C] hover:text-[#0A0A0A]"
+                  >
+                    Login
+                  </Link>
+                )}
+              </div>
+            </nav>
 
           <div className="mx-auto flex max-w-5xl flex-1 flex-col items-center justify-center pb-24 text-center">
             <FadeContent>
@@ -147,10 +198,10 @@ const LandingPage = () => (
             <FadeContent delay={0.8}>
               <div className="mt-9 flex flex-col items-center justify-center gap-4 sm:flex-row">
                 <MagneticLink
-                  to="/login"
+                  to={primaryCta.to}
                   className="inline-flex rounded-full bg-[#C9A84C] px-8 py-4 text-base font-bold text-[#0A0A0A] transition hover:bg-[#F0C040]"
                 >
-                  Start for free
+                  {primaryCta.label}
                 </MagneticLink>
                 <MagneticLink
                   to="/pricing"
@@ -271,10 +322,10 @@ const LandingPage = () => (
             </p>
             <div className="mt-9">
               <MagneticLink
-                to="/login"
+                to={finalCta.to}
                 className="inline-flex rounded-full bg-[#C9A84C] px-9 py-5 text-lg font-black text-[#0A0A0A] transition hover:bg-[#F0C040]"
               >
-                Create your first room
+                {finalCta.label}
               </MagneticLink>
             </div>
           </FadeContent>
@@ -297,7 +348,8 @@ const LandingPage = () => (
         <p className="md:text-right">© 2026 KRODOT. All rights reserved.</p>
       </div>
     </footer>
-  </div>
-);
+    </div>
+  );
+};
 
 export default LandingPage;
