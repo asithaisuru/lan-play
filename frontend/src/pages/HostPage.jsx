@@ -11,6 +11,7 @@ import PlaylistDisplay from '../components/PlaylistDisplay';
 import UserAddSong from '../components/UserAddSong';
 import { useSocket } from '../hooks/useSocket';
 import { usePlaylist } from '../hooks/usePlaylist';
+import { useRoomJoin } from '../hooks/useRoomJoin';
 import { useAuth } from '../context/AuthContext';
 
 const SOCKET_URL = (() => {
@@ -56,8 +57,6 @@ const HostPage = () => {
   const [hasEverConnected, setHasEverConnected] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
   const copyTimerRef = useRef(null);
-  const hasJoinedRef = useRef(false);
-  const joinedRoomRef = useRef('');
   const { socket, isConnected } = useSocket(SOCKET_URL);
   const {
     playlist,
@@ -82,6 +81,15 @@ const HostPage = () => {
 
   const guestInviteLink = `${window.location.origin}/room/${roomCode}`;
 
+  useRoomJoin({
+    socket,
+    isConnected,
+    roomCode,
+    username,
+    clientId,
+    enabled: Boolean(user)
+  });
+
   useEffect(() => {
     if (isConnected) {
       setHasEverConnected(true);
@@ -99,45 +107,6 @@ const HostPage = () => {
     const id = getOrCreateHostClientId();
     setClientId(prev => prev || id);
   }, [loading, user]);
-
-  useEffect(() => {
-    hasJoinedRef.current = false;
-    joinedRoomRef.current = '';
-  }, [roomCode, clientId]);
-
-  useEffect(() => {
-    if (
-      !socket ||
-      !isConnected ||
-      !clientId ||
-      !username ||
-      !user ||
-      hasJoinedRef.current
-    ) return;
-
-    hasJoinedRef.current = true;
-    joinedRoomRef.current = roomCode;
-
-    socket.emit('join-room', { roomCode, username, clientId });
-  }, [clientId, isConnected, roomCode, socket, user, username]);
-
-  // Handle socket reconnection without re-joining
-  useEffect(() => {
-    if (!socket) return undefined;
-
-    const handleReconnect = () => {
-      if (hasJoinedRef.current && joinedRoomRef.current) {
-        socket.emit('join-room', {
-          roomCode: joinedRoomRef.current,
-          username,
-          clientId
-        });
-      }
-    };
-
-    socket.on('connect', handleReconnect);
-    return () => socket.off('connect', handleReconnect);
-  }, [socket, username, clientId]);
 
   useEffect(() => {
     const timer = copyTimerRef.current;

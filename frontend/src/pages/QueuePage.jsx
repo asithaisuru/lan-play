@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Header from '../components/layout/Header';
@@ -10,6 +10,7 @@ import PlaylistDisplay from '../components/PlaylistDisplay';
 import UserAddSong from '../components/UserAddSong';
 import { useSocket } from '../hooks/useSocket';
 import { usePlaylist } from '../hooks/usePlaylist';
+import { useRoomJoin } from '../hooks/useRoomJoin';
 
 const SOCKET_URL = (() => {
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -22,8 +23,7 @@ const QueuePage = () => {
   const roomCode = code.toUpperCase();
   const clientId = sessionStorage.getItem('waveio_client_id');
   const username = sessionStorage.getItem(`waveio_username_${roomCode}`);
-  const hasJoinedRef = useRef(false);
-  const joinedRoomRef = useRef('');
+  const [hasEverConnected, setHasEverConnected] = useState(false);
   const { socket, isConnected } = useSocket(SOCKET_URL);
   const {
     playlist,
@@ -38,37 +38,19 @@ const QueuePage = () => {
   } = usePlaylist(socket, clientId);
 
   useEffect(() => {
-    if (
-      !socket ||
-      !isConnected ||
-      !clientId ||
-      !username ||
-      hasJoinedRef.current
-    ) return;
+    if (isConnected) {
+      setHasEverConnected(true);
+    }
+  }, [isConnected]);
 
-    hasJoinedRef.current = true;
-    joinedRoomRef.current = roomCode;
-
-    socket.emit('join-room', { roomCode, username, clientId });
-  }, [socket, isConnected, clientId, username, roomCode]);
-
-  // Handle socket reconnection
-  useEffect(() => {
-    if (!socket) return undefined;
-
-    const handleReconnect = () => {
-      if (hasJoinedRef.current && joinedRoomRef.current && clientId) {
-        socket.emit('join-room', {
-          roomCode: joinedRoomRef.current,
-          username,
-          clientId
-        });
-      }
-    };
-
-    socket.on('connect', handleReconnect);
-    return () => socket.off('connect', handleReconnect);
-  }, [socket, clientId, username]);
+  useRoomJoin({
+    socket,
+    isConnected,
+    roomCode,
+    username,
+    clientId,
+    enabled: Boolean(clientId && username)
+  });
 
   const handleLeaveRoom = () => {
     if (socket) {
@@ -119,7 +101,7 @@ const QueuePage = () => {
           </div>
         </div>
 
-        {!isConnected ? (
+        {!hasEverConnected && !isConnected ? (
           <Spinner label="Connecting to room" />
         ) : (
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">

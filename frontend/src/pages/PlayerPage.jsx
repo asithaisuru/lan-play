@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Maximize2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -6,6 +6,7 @@ import Spinner from '../components/ui/Spinner';
 import NowPlaying from '../components/NowPlaying';
 import { useAuth } from '../context/AuthContext';
 import { usePlaylist } from '../hooks/usePlaylist';
+import { useRoomJoin } from '../hooks/useRoomJoin';
 import { useSocket } from '../hooks/useSocket';
 
 const SOCKET_URL = (() => {
@@ -61,8 +62,6 @@ const PlayerPage = () => {
     sessionStorage.getItem('waveio_audio_activated_' + code.toUpperCase()) === 'true'
   ));
   const [hasEverConnected, setHasEverConnected] = useState(false);
-  const hasJoinedRef = useRef(false);
-  const joinedRoomRef = useRef('');
   const { socket, isConnected } = useSocket(SOCKET_URL);
   const {
     playlist,
@@ -94,44 +93,15 @@ const PlayerPage = () => {
     setIdentity(getPlayerIdentity({ roomCode, user }));
   }, [loading, roomCode, user]);
 
-  useEffect(() => {
-    if (
-      !socket ||
-      !isConnected ||
-      !identity.clientId ||
-      !identity.username ||
-      hasJoinedRef.current
-    ) return;
-
-    hasJoinedRef.current = true;
-    joinedRoomRef.current = roomCode;
-
-    socket.emit('join-room', {
-      roomCode,
-      username: identity.username,
-      clientId: identity.clientId,
-      isPlayerDevice: true
-    });
-  }, [identity.clientId, identity.username, isConnected, roomCode, socket]);
-
-  // Handle socket reconnection
-  useEffect(() => {
-    if (!socket) return undefined;
-
-    const handleReconnect = () => {
-      if (hasJoinedRef.current && joinedRoomRef.current && identity.clientId) {
-        socket.emit('join-room', {
-          roomCode: joinedRoomRef.current,
-          username: identity.username,
-          clientId: identity.clientId,
-          isPlayerDevice: true
-        });
-      }
-    };
-
-    socket.on('connect', handleReconnect);
-    return () => socket.off('connect', handleReconnect);
-  }, [socket, identity.clientId, identity.username]);
+  useRoomJoin({
+    socket,
+    isConnected,
+    roomCode,
+    username: identity.username,
+    clientId: identity.clientId,
+    isPlayerDevice: true,
+    enabled: Boolean(identity.clientId && identity.username)
+  });
 
   const openFullscreen = async () => {
     try {
