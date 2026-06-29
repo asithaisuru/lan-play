@@ -16,7 +16,9 @@ const AuthCallbackPage = () => {
         const user = response.data?.user || response.data || null;
         if (!user) throw new Error('No authenticated user returned.');
         setUser(user);
-        navigate('/dashboard', { replace: true });
+        const returnTo = sessionStorage.getItem('waveio_login_return') || '/dashboard';
+        sessionStorage.removeItem('waveio_login_return');
+        navigate(returnTo, { replace: true });
       } catch {
         navigate('/login?error=auth_failed', { replace: true });
       }

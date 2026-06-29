@@ -71,7 +71,8 @@ const GuestJoinPage = () => {
     setJoining(true);
     setError('');
     const clientId = getOrCreateClientId();
-    sessionStorage.setItem(`waveio_username_${roomCode}`, safeUsername);
+    sessionStorage.setItem('waveio_username_' + roomCode, safeUsername);
+    sessionStorage.setItem('waveio_client_id', clientId);
 
     const socket = io(getSocketUrl(), {
       transports: ['websocket', 'polling']
@@ -89,6 +90,8 @@ const GuestJoinPage = () => {
     });
 
     socket.on('playlist-state', () => {
+      sessionStorage.setItem('waveio_username_' + roomCode, safeUsername);
+      sessionStorage.setItem('waveio_client_id', clientId);
       cleanup();
       navigate(`/room/${roomCode}/queue`);
     });

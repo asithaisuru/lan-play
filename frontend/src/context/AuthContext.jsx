@@ -27,13 +27,14 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  const logout = useCallback(async () => {
+  const logout = useCallback(async (onComplete) => {
     try {
       await api.post('/auth/logout');
     } catch {
       // The local auth state should still clear if the backend logout route is unavailable.
     } finally {
       setUser(null);
+      if (onComplete) onComplete();
     }
   }, []);
 

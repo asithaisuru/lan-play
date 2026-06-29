@@ -1,10 +1,15 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const Header = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const displayName = user?.name || user?.email || 'Host';
+
+  const handleLogout = () => {
+    logout(() => navigate('/login'));
+  };
 
   return (
     <header className="border-b border-[rgba(201,168,76,0.15)] bg-[#141414]">
@@ -32,7 +37,7 @@ const Header = () => {
               </span>
               <button
                 type="button"
-                onClick={logout}
+                onClick={handleLogout}
                 className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#C9A84C22] bg-[#0A0A0A] text-[#D0D0C8] transition hover:border-[#C9A84C66] hover:text-[#F5F5F5]"
                 title="Log out"
                 aria-label="Log out"

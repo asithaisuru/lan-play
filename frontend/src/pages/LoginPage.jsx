@@ -8,9 +8,15 @@ const LoginPage = () => {
   const { user, loading } = useAuth();
   const [searchParams] = useSearchParams();
   const loginUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/auth/google`;
+  const from = searchParams.get('from');
+  const returnTo = from || '/dashboard';
+
+  const handleGoogleLogin = () => {
+    sessionStorage.setItem('waveio_login_return', returnTo);
+  };
 
   if (!loading && user) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={returnTo} replace />;
   }
 
   return (
@@ -28,7 +34,7 @@ const LoginPage = () => {
               Sign in failed. Please try again.
             </p>
           )}
-          <a href={loginUrl} className="btn btn-primary mt-7 w-full">
+          <a href={loginUrl} onClick={handleGoogleLogin} className="btn btn-primary mt-7 w-full">
             <LogIn size={18} />
             Continue with Google
           </a>

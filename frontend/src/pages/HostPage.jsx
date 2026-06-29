@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Link, useParams } from 'react-router-dom';
+import { Copy, ExternalLink } from 'lucide-react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import Spinner from '../components/ui/Spinner';
@@ -17,24 +18,43 @@ const getSocketUrl = () => {
   return apiUrl.replace(/\/api\/?$/, '');
 };
 
-const getOrCreateClientId = () => {
-  const existingClientId = sessionStorage.getItem('waveio_client_id');
+const getOrCreateHostClientId = () => {
+  const existingClientId = localStorage.getItem('waveio_host_clientId');
   if (existingClientId) return existingClientId;
 
   const nextClientId = window.crypto?.randomUUID
     ? window.crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  sessionStorage.setItem('waveio_client_id', nextClientId);
+  localStorage.setItem('waveio_host_clientId', nextClientId);
   return nextClientId;
+};
+
+const copyText = async (value) => {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const textArea = document.createElement('textarea');
+  textArea.value = value;
+  textArea.setAttribute('readonly', '');
+  textArea.style.position = 'fixed';
+  textArea.style.left = '-9999px';
+  document.body.appendChild(textArea);
+  textArea.select();
+  document.execCommand('copy');
+  document.body.removeChild(textArea);
 };
 
 const HostPage = () => {
   const { code = '' } = useParams();
   const roomCode = code.toUpperCase();
-  const { user } = useAuth();
-  const [clientId, setClientId] = useState(() => sessionStorage.getItem('waveio_client_id'));
-  const [username, setUsername] = useState(() => sessionStorage.getItem(`waveio_username_${roomCode}`));
+  const navigate = useNavigate();
+  const { user, loading } = useAuth();
+  const [clientId, setClientId] = useState(() => localStorage.getItem('waveio_host_clientId'));
+  const [copiedInvite, setCopiedInvite] = useState(false);
   const joinedRef = useRef(false);
+  const copyTimerRef = useRef(null);
   const { socket, isConnected } = useSocket(getSocketUrl());
   const {
     playlist,
@@ -48,33 +68,80 @@ const HostPage = () => {
     playAnnouncement
   } = usePlaylist(socket, clientId);
 
-  useEffect(() => {
-    joinedRef.current = false;
-    setClientId(sessionStorage.getItem('waveio_client_id'));
-    setUsername(sessionStorage.getItem(`waveio_username_${roomCode}`));
-  }, [roomCode]);
+  const username = useMemo(() => (
+    user?.name || user?.email || 'Host'
+  ).trim(), [user]);
+
+  const playlistName = playlist?.name
+    || playlist?.playlistName
+    || playlist?.playlist_name
+    || 'Room playlist';
+
+  const guestInviteLink = `${window.location.origin}/room/${roomCode}`;
 
   useEffect(() => {
-    if (!socket || !isConnected || !clientId || !username || joinedRef.current) return;
+    if (!loading && !user) {
+      navigate('/login', { replace: true });
+    }
+  }, [loading, navigate, user]);
+
+  useEffect(() => {
+    if (loading || !user) return;
+    setClientId(getOrCreateHostClientId());
+  }, [loading, user]);
+
+  useEffect(() => {
+    joinedRef.current = false;
+  }, [clientId, roomCode, username]);
+
+  useEffect(() => {
+    if (!isConnected) {
+      joinedRef.current = false;
+    }
+  }, [isConnected]);
+
+  useEffect(() => {
+    if (!socket || !isConnected || !clientId || !username || !user || joinedRef.current) return;
     socket.emit('join-room', { roomCode, username, clientId });
     joinedRef.current = true;
-  }, [socket, isConnected, clientId, username, roomCode]);
+  }, [clientId, isConnected, roomCode, socket, user, username]);
 
-  const joinAsHost = () => {
-    const nextClientId = getOrCreateClientId();
-    const nextUsername = (user?.name || user?.email || 'Host').trim();
-    sessionStorage.setItem(`waveio_username_${roomCode}`, nextUsername);
-    setClientId(nextClientId);
-    setUsername(nextUsername);
-    joinedRef.current = false;
+  useEffect(() => () => {
+    clearTimeout(copyTimerRef.current);
+  }, []);
 
-    if (socket && isConnected) {
-      socket.emit('join-room', { roomCode, username: nextUsername, clientId: nextClientId });
-      joinedRef.current = true;
+  const handleCopyInvite = useCallback(async () => {
+    try {
+      await copyText(guestInviteLink);
+      setCopiedInvite(true);
+      clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = setTimeout(() => setCopiedInvite(false), 2000);
+    } catch {
+      setCopiedInvite(false);
     }
-  };
+  }, [guestInviteLink]);
 
-  const hasSessionIdentity = Boolean(clientId && username);
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0A0A0A]">
+        <Helmet>
+          <title>{roomCode} Host Controls — Waveio</title>
+        </Helmet>
+        <Spinner label="Checking your Waveio session" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-[#0A0A0A]">
+        <Helmet>
+          <title>{roomCode} Host Controls — Waveio</title>
+        </Helmet>
+        <Spinner label="Redirecting to login" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-[#F5F5F5]">
@@ -84,33 +151,46 @@ const HostPage = () => {
       <Header />
       <main className="mx-auto max-w-7xl px-4 py-8 md:px-6">
         <div className="mb-6 rounded-lg border border-[#C9A84C22] bg-[#141414] p-5">
-          <p className="eyebrow">Host controls</p>
-          <div className="mt-2 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <h1 className="font-mono text-2xl font-semibold">{roomCode}</h1>
-            <div className="flex flex-wrap gap-2">
-              <span className={isHost ? 'badge badge-green' : 'badge badge-blue'}>{isHost ? 'Host' : 'Joining as host'}</span>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <p className="eyebrow">Host controls</p>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <h1 className="font-mono text-2xl font-semibold text-[#F5F5F5]">{roomCode}</h1>
+                {isPlaying && (
+                  <span className="rounded-full border border-[#C9A84C55] bg-[#C9A84C18] px-3 py-1 text-xs font-bold uppercase text-[#C9A84C]">
+                    Live
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 truncate text-sm text-[#888880]">{playlistName}</p>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
               <span className="badge badge-slate">{users.length} connected</span>
+              <span className={isHost ? 'badge badge-green' : 'badge badge-blue'}>
+                {isHost ? 'Host' : 'Connecting host'}
+              </span>
               <span className="badge badge-slate">{isAudioDevice ? 'Audio device' : 'Room sync'}</span>
+              <button
+                type="button"
+                onClick={handleCopyInvite}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#C9A84C55] bg-[#C9A84C0F] px-3 py-2 text-sm font-semibold text-[#F5F5F5] transition hover:bg-[#C9A84C18]"
+              >
+                <Copy size={16} />
+                {copiedInvite ? 'Copied!' : 'Copy guest invite'}
+              </button>
+              <Link
+                to={`/room/${roomCode}/player`}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#C9A84C22] bg-[#0A0A0A] px-3 py-2 text-sm font-semibold text-[#D0D0C8] transition hover:border-[#C9A84C66] hover:text-[#F5F5F5]"
+              >
+                <ExternalLink size={16} />
+                Player view
+              </Link>
             </div>
           </div>
         </div>
 
-        {!hasSessionIdentity ? (
-          <section className="mx-auto max-w-xl rounded-lg border border-[#C9A84C22] bg-[#141414] p-6 text-center">
-            <h2 className="text-2xl font-semibold">You need to join the room first</h2>
-            <p className="mt-2 text-sm text-[#888880]">
-              Join as a guest first, or use your host account name to open this control panel.
-            </p>
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <Link to={`/room/${roomCode}`} className="btn btn-secondary">
-                Join as guest
-              </Link>
-              <button type="button" onClick={joinAsHost} className="btn btn-primary">
-                Join as host
-              </button>
-            </div>
-          </section>
-        ) : !isConnected ? (
+        {!clientId || !isConnected ? (
           <Spinner label="Connecting to host controls" />
         ) : (
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
@@ -128,7 +208,7 @@ const HostPage = () => {
               />
               <HostController
                 socket={socket}
-                isHost
+                isHost={isHost}
                 users={users}
                 playlist={playlist}
                 clientId={clientId}
