@@ -12,6 +12,7 @@ import HostPage from './pages/HostPage';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import NotFoundPage from './pages/NotFoundPage';
+import PlayerPage from './pages/PlayerPage';
 import PricingPage from './pages/PricingPage';
 import QueuePage from './pages/QueuePage';
 
@@ -35,6 +36,7 @@ createRoot(document.getElementById('root')).render(
             />
             <Route path="/room/:code" element={<GuestJoinPage />} />
             <Route path="/room/:code/host" element={<HostPage />} />
+            <Route path="/room/:code/player" element={<PlayerPage />} />
             <Route path="/room/:code/queue" element={<QueuePage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
