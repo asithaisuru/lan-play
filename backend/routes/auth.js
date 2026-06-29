@@ -99,7 +99,7 @@ router.get('/google/callback', authLimiter, (req, res, next) => {
       res.cookie('waveio_token', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         maxAge: cookieMaxAge
       });
 
@@ -138,7 +138,7 @@ router.post('/logout', (req, res) => {
   res.clearCookie('waveio_token', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax'
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
   });
 
   return res.json({ success: true });
