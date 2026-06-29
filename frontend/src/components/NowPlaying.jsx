@@ -76,7 +76,11 @@ const NowPlaying = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [audioReady, setAudioReady] = useState(false);
   const [advanceError, setAdvanceError] = useState('');
-  const roomVolume = Math.max(0, Math.min(100, Number(playlist?.volume ?? 100)));
+  const serverVolume = Math.max(0, Math.min(100, Number(playlist?.volume ?? 100)));
+  const [localVolume, setLocalVolume] = useState(serverVolume);
+  const [localIsPlaying, setLocalIsPlaying] = useState(isPlaying);
+  const isDraggingRef = useRef(false);
+  const volumeEmitTimeout = useRef(null);
   const effectiveAudioReady = !isAudioDevice || audioReady || audioActivated;
   const canUseAudioPlayer = Boolean(isAudioDevice && effectiveAudioReady);
 
@@ -205,14 +209,24 @@ const NowPlaying = ({
         activePlayer.seekTo(targetTime, true);
         setElapsedTime(targetTime);
       }
-      activePlayer.setVolume?.(roomVolume);
+      activePlayer.setVolume?.(localVolume);
       if (isPlaying) {
         activePlayer.playVideo();
       }
     } catch (error) {
       console.warn('Audio activation play attempt failed:', error);
     }
-  }, [currentSong, isPlaying, isReadyPlayer, onAudioActivated, roomVolume, syncedCurrentTime]);
+  }, [currentSong, isPlaying, isReadyPlayer, localVolume, onAudioActivated, syncedCurrentTime]);
+
+  useEffect(() => {
+    if (!isDraggingRef.current) {
+      setLocalVolume(serverVolume);
+    }
+  }, [serverVolume]);
+
+  useEffect(() => {
+    setLocalIsPlaying(isPlaying);
+  }, [isPlaying]);
 
   useEffect(() => {
     latestStateRef.current = {
@@ -360,7 +374,7 @@ const NowPlaying = ({
               console.warn('Player initial play failed:', error);
             }
           }
-          fadeVolume(event.target, roomVolume);
+          fadeVolume(event.target, localVolume);
           if (latest.socket && duration > 0) {
             latest.socket.emit('playback-progress', {
               currentTime: event.target.getCurrentTime?.() || 0,
@@ -421,7 +435,7 @@ const NowPlaying = ({
 
     hasAnnouncedRef.current = false;
     setIsPlayerReady(false);
-  }, [canUseAudioPlayer, currentSong, fadeVolume, getPlayerMount, isReadyPlayer, playAnnouncement, requestNextSong, roomVolume, visiblePlayer]);
+  }, [canUseAudioPlayer, currentSong, fadeVolume, getPlayerMount, isReadyPlayer, localVolume, playAnnouncement, requestNextSong, visiblePlayer]);
 
   // Re-initialize player when song changes
   useEffect(() => {
@@ -468,7 +482,7 @@ const NowPlaying = ({
         }
 
         if (isPlaying) {
-          await fadeVolume(player, roomVolume, 900);
+          await fadeVolume(player, localVolume, 900);
         }
       } catch (error) {
         console.error('Player song switch error:', error);
@@ -476,17 +490,17 @@ const NowPlaying = ({
     };
 
     switchSong();
-  }, [canUseAudioPlayer, currentSong, fadeVolume, isPlayerReady, isPlaying, isReadyPlayer, player, roomVolume, syncedCurrentTime]);
+  }, [canUseAudioPlayer, currentSong, fadeVolume, isPlayerReady, isPlaying, isReadyPlayer, localVolume, player, syncedCurrentTime]);
 
   useEffect(() => {
     if (!canUseAudioPlayer || !isPlayerReady || !isReadyPlayer(player)) return;
 
     try {
-      player.setVolume?.(roomVolume);
+      player.setVolume?.(localVolume);
     } catch (error) {
       console.warn('Player volume update failed:', error);
     }
-  }, [canUseAudioPlayer, isPlayerReady, isReadyPlayer, player, roomVolume]);
+  }, [canUseAudioPlayer, isPlayerReady, isReadyPlayer, localVolume, player]);
 
   useEffect(() => {
     setElapsedTime(syncedCurrentTime || 0);
@@ -580,6 +594,7 @@ const NowPlaying = ({
   useEffect(() => {
     return () => {
       clearTimeout(announcementTimerRef.current);
+      clearTimeout(volumeEmitTimeout.current);
       clearFadeIntervals();
       stopHostPlayer();
     };
@@ -635,7 +650,10 @@ const NowPlaying = ({
   const handlePlayPause = () => {
     if (!socket || !isHost) return;
 
-    if (isPlaying) {
+    const nextState = !localIsPlaying;
+    setLocalIsPlaying(nextState);
+
+    if (!nextState) {
       socket.emit('pause', { currentTime: elapsedTime });
       return;
     }
@@ -671,11 +689,17 @@ const NowPlaying = ({
 
   const handleVolumeChange = (volume) => {
     if (!socket || !isHost) return;
-    socket.emit('set-volume', { volume });
+    const safeVolume = Math.max(0, Math.min(100, Math.round(Number(volume) || 0)));
+    setLocalVolume(safeVolume);
+
+    clearTimeout(volumeEmitTimeout.current);
+    volumeEmitTimeout.current = setTimeout(() => {
+      socket.emit('set-volume', { volume: safeVolume });
+    }, 100);
   };
 
   const adjustVolume = (delta) => {
-    handleVolumeChange(Math.max(0, Math.min(100, roomVolume + delta)));
+    handleVolumeChange(localVolume + delta);
   };
 
   const openFullscreen = async () => {
@@ -713,11 +737,11 @@ const NowPlaying = ({
             onClick={handlePlayPause}
             disabled={!hasPlayableTracks}
             className={`${isFullscreenControls ? 'h-14 w-14 text-xl sm:h-16 sm:w-16 sm:text-2xl' : 'h-12 w-12 text-lg'} inline-flex items-center justify-center rounded-full bg-[#C9A84C] font-black text-[#0A0A0A] shadow-lg shadow-black/30 transition hover:bg-[#F0C040] disabled:cursor-not-allowed disabled:opacity-40`}
-            title={isPlaying ? 'Pause' : 'Play'}
-            aria-label={isPlaying ? 'Pause' : 'Play'}
+            title={localIsPlaying ? 'Pause' : 'Play'}
+            aria-label={localIsPlaying ? 'Pause' : 'Play'}
           >
             <span aria-hidden="true">
-              {isPlaying ? '⏸' : '▶'}
+              {localIsPlaying ? '⏸' : '▶'}
             </span>
           </button>
           <button
@@ -736,7 +760,7 @@ const NowPlaying = ({
           <button
             type="button"
             onClick={() => adjustVolume(-10)}
-            disabled={roomVolume <= 0}
+            disabled={localVolume <= 0}
             className={`${isFullscreenControls ? 'h-9 w-9 text-base sm:h-11 sm:w-11' : 'h-9 w-9 text-sm'} inline-flex flex-shrink-0 items-center justify-center rounded-full bg-white/10 font-bold text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40`}
             title="Volume down"
             aria-label="Volume down"
@@ -748,15 +772,19 @@ const NowPlaying = ({
             min="0"
             max="100"
             step="1"
-            value={roomVolume}
+            value={localVolume}
             onChange={(event) => handleVolumeChange(Number(event.target.value))}
+            onMouseDown={() => { isDraggingRef.current = true; }}
+            onMouseUp={() => { isDraggingRef.current = false; }}
+            onTouchStart={() => { isDraggingRef.current = true; }}
+            onTouchEnd={() => { isDraggingRef.current = false; }}
             className="min-w-0 flex-1 accent-[#C9A84C]"
             aria-label="Audio volume"
           />
           <button
             type="button"
             onClick={() => adjustVolume(10)}
-            disabled={roomVolume >= 100}
+            disabled={localVolume >= 100}
             className={`${isFullscreenControls ? 'h-9 w-9 text-base sm:h-11 sm:w-11' : 'h-9 w-9 text-sm'} inline-flex flex-shrink-0 items-center justify-center rounded-full bg-white/10 font-bold text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40`}
             title="Volume up"
             aria-label="Volume up"
@@ -764,7 +792,7 @@ const NowPlaying = ({
             <span aria-hidden="true">+</span>
           </button>
           <span className="w-9 flex-shrink-0 text-right font-mono text-[11px] text-slate-300 sm:w-11 sm:text-xs">
-            {roomVolume}%
+            {localVolume}%
           </span>
         </div>
       </div>
@@ -829,8 +857,8 @@ const NowPlaying = ({
                 <span className="rounded-full bg-white/10 px-3 py-1">
                   {currentSource === 'default' ? 'Default playlist' : `Added by ${currentSong.addedBy}`}
                 </span>
-                <span className={isPlaying ? "rounded-full bg-[#C9A84C22] px-3 py-1 text-[#F0C040]" : "rounded-full bg-[#88888022] px-3 py-1 text-[#D0D0C8]"}>
-                  {isPlaying ? "Playing" : "Paused"}
+                <span className={localIsPlaying ? "rounded-full bg-[#C9A84C22] px-3 py-1 text-[#F0C040]" : "rounded-full bg-[#88888022] px-3 py-1 text-[#D0D0C8]"}>
+                  {localIsPlaying ? "Playing" : "Paused"}
                 </span>
               </div>
 
@@ -841,7 +869,7 @@ const NowPlaying = ({
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-white/10">
                   <div
-                    className="h-full rounded-full bg-[#C9A84C] transition-all duration-500"
+                    className="h-full rounded-full bg-[#C9A84C] transition-all duration-1000"
                     style={{ width: `${progressPercent}%` }}
                   />
                 </div>
@@ -945,8 +973,8 @@ const NowPlaying = ({
 
               <div className="mx-auto flex min-h-0 w-full max-w-full flex-col justify-center overflow-hidden text-center sm:max-w-4xl lg:text-left">
                 <div className="flex flex-wrap items-center justify-center gap-1.5 lg:justify-start">
-                  <span className={isPlaying ? "rounded-full bg-[#C9A84C22] px-3 py-1 text-xs font-semibold text-[#F0C040] sm:text-sm" : "rounded-full bg-[#88888022] px-3 py-1 text-xs font-semibold text-[#D0D0C8] sm:text-sm"}>
-                    {isPlaying ? "Playing" : "Paused"}
+                  <span className={localIsPlaying ? "rounded-full bg-[#C9A84C22] px-3 py-1 text-xs font-semibold text-[#F0C040] sm:text-sm" : "rounded-full bg-[#88888022] px-3 py-1 text-xs font-semibold text-[#D0D0C8] sm:text-sm"}>
+                    {localIsPlaying ? "Playing" : "Paused"}
                   </span>
                   <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-slate-200 sm:text-sm">
                     {isAudioDevice ? "This device" : "Room sync"}
@@ -968,7 +996,7 @@ const NowPlaying = ({
                   </div>
                   <div className="h-2.5 overflow-hidden rounded-full bg-white/10 sm:h-3">
                     <div
-                      className="h-full rounded-full bg-[#C9A84C] transition-all duration-500"
+                      className="h-full rounded-full bg-[#C9A84C] transition-all duration-1000"
                       style={{ width: `${progressPercent}%` }}
                     />
                   </div>

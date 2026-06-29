@@ -13,7 +13,6 @@ const WaveioLogo = ({
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
     >
-      <rect width="1280" height="1280" fill="#020202" />
       <polygon
         points="264,217 385,217 385,979 264,895"
         fill={color}

@@ -3,7 +3,8 @@ import { useState } from 'react';
 const UserAddSong = ({ socket, username }) => {
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [message, setMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [addedFeedback, setAddedFeedback] = useState('');
   const [error, setError] = useState('');
 
   const handleAddSong = async (e) => {
@@ -14,8 +15,11 @@ const UserAddSong = ({ socket, username }) => {
       return;
     }
 
-    setIsLoading(true);
+    setIsAdding(true);
+    setAddedFeedback('');
     setError('');
+    let feedbackTimer = null;
+    let clearFeedbackTimer = null;
     
     try {
       const payload = {
@@ -23,6 +27,12 @@ const UserAddSong = ({ socket, username }) => {
         username,
         message: message.trim()
       };
+
+      feedbackTimer = setTimeout(() => {
+        setIsAdding(false);
+        setAddedFeedback('Song added to queue!');
+        clearFeedbackTimer = setTimeout(() => setAddedFeedback(''), 3000);
+      }, 300);
 
       const response = await new Promise((resolve) => {
         socket.timeout(12000).emit('add-song', payload, (timeoutError, ack) => {
@@ -42,9 +52,12 @@ const UserAddSong = ({ socket, username }) => {
       setYoutubeUrl('');
       setMessage('');
     } catch (error) {
+      clearTimeout(feedbackTimer);
+      clearTimeout(clearFeedbackTimer);
+      setAddedFeedback('');
       setError(error.message);
     } finally {
-      setIsLoading(false);
+      setIsAdding(false);
     }
   };
 
@@ -89,11 +102,16 @@ const UserAddSong = ({ socket, username }) => {
         <button 
           type="submit" 
           className="btn btn-primary h-[46px] w-full lg:w-auto"
-          disabled={isLoading || !youtubeUrl.trim() || !socket?.connected}
+          disabled={isAdding || !youtubeUrl.trim() || !socket?.connected}
         >
-          {isLoading ? 'Adding...' : 'Add song'}
+          {isAdding ? 'Adding...' : 'Add song'}
         </button>
       </form>
+      {addedFeedback && (
+        <p className="mt-2 text-sm text-[#C9A84C]">
+          {addedFeedback}
+        </p>
+      )}
       {error && (
         <p className="mt-3 rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-100">
           {error}

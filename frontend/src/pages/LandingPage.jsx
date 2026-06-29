@@ -103,7 +103,7 @@ const LandingPage = () => (
 
     <main>
       <section className="relative flex min-h-screen overflow-hidden bg-[#0A0A0A]">
-        <Aurora colorStops={['#C9A84C', '#F0C040', '#C9A84C']} amplitude={1.1} blend={0.7} />
+        <Aurora colorStops={['#4A3510', '#C9A84C', '#7A5A18']} amplitude={0.55} blend={0.42} />
 
         <div className="relative z-10 flex min-h-screen w-full flex-col px-4 md:px-8">
           <nav className="mx-auto flex w-full max-w-7xl items-center justify-between py-6">
@@ -126,7 +126,7 @@ const LandingPage = () => (
 
           <div className="mx-auto flex max-w-5xl flex-1 flex-col items-center justify-center pb-24 text-center">
             <FadeContent>
-              <WaveioLogo size={64} showWordmark={false} className="justify-center" />
+              <WaveioLogo size={96} showWordmark={false} className="justify-center" />
             </FadeContent>
 
             <BlurText
@@ -260,7 +260,7 @@ const LandingPage = () => (
       </section>
 
       <section className="relative overflow-hidden bg-[#0A0A0A] px-4 py-16 md:px-8 md:py-24">
-        <Aurora colorStops={['#C9A84C', '#F0C040', '#C9A84C']} amplitude={0.9} blend={0.45} />
+        <Aurora colorStops={['#4A3510', '#C9A84C', '#7A5A18']} amplitude={0.5} blend={0.36} />
         <div className="relative z-10 mx-auto max-w-4xl text-center">
           <FadeContent>
             <h2 className="text-4xl font-black text-[#F5F5F5] md:text-6xl">Ready to set the vibe?</h2>
