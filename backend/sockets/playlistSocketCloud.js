@@ -197,7 +197,7 @@ export const initializePlaylistSocket = (io) => {
               console.error('Host reassignment error:', error);
               pendingHostReassignments.delete(roomCode);
             });
-          }, 8000);
+          }, 15000);
           pendingHostReassignments.set(roomCode, timeout);
         } else {
           await reassignHost();

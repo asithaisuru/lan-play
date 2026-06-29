@@ -186,7 +186,9 @@ const NowPlaying = ({
     return ensureYouTubeMount();
   }, [visiblePlayer]);
 
-  const handleActivateAudio = useCallback(() => {
+  const handleActivateAudio = useCallback((e) => {
+    if (e?.preventDefault) e.preventDefault();
+    if (e?.stopPropagation) e.stopPropagation();
     setAudioReady(true);
     onAudioActivated?.();
 

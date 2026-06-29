@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Maximize2 } from 'lucide-react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import Spinner from '../components/ui/Spinner';
 import NowPlaying from '../components/NowPlaying';
 import { useAuth } from '../context/AuthContext';
@@ -53,6 +53,7 @@ const getPlayerIdentity = ({ roomCode, user }) => {
 
 const PlayerPage = () => {
   const { code = '' } = useParams();
+  const navigate = useNavigate();
   const roomCode = code.toUpperCase();
   const { user, loading } = useAuth();
   const [identity, setIdentity] = useState({ clientId: '', username: '' });
@@ -131,9 +132,20 @@ const PlayerPage = () => {
     }
   };
 
-  const handleActivateAudio = () => {
+  const handleActivateAudio = (e) => {
+    if (e?.preventDefault) e.preventDefault();
+    if (e?.stopPropagation) e.stopPropagation();
     sessionStorage.setItem('waveio_audio_activated_' + roomCode, 'true');
     setAudioActivated(true);
+  };
+
+  const handleLeave = () => {
+    if (socket) {
+      socket.emit('leave-room');
+    }
+    sessionStorage.removeItem('waveio_audio_activated_' + roomCode);
+    window.close();
+    navigate('/');
   };
 
   return (
@@ -170,6 +182,13 @@ const PlayerPage = () => {
               aria-label="Fullscreen"
             >
               <Maximize2 size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={handleLeave}
+              className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-sm font-semibold text-rose-300 transition hover:bg-rose-500/20"
+            >
+              Leave
             </button>
           </div>
         </header>

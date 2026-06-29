@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import Spinner from '../components/ui/Spinner';
@@ -18,6 +18,7 @@ const SOCKET_URL = (() => {
 
 const QueuePage = () => {
   const { code = '' } = useParams();
+  const navigate = useNavigate();
   const roomCode = code.toUpperCase();
   const clientId = sessionStorage.getItem('waveio_client_id');
   const username = sessionStorage.getItem(`waveio_username_${roomCode}`);
@@ -69,6 +70,16 @@ const QueuePage = () => {
     return () => socket.off('connect', handleReconnect);
   }, [socket, clientId, username]);
 
+  const handleLeaveRoom = () => {
+    if (socket) {
+      socket.emit('leave-room');
+    }
+    sessionStorage.removeItem('waveio_client_id');
+    sessionStorage.removeItem('waveio_username_' + roomCode);
+    sessionStorage.removeItem('waveio_audio_activated_' + roomCode);
+    navigate('/');
+  };
+
   if (!clientId || !username) {
     return (
       <div className="min-h-screen bg-[#0A0A0A] text-[#F5F5F5]">
@@ -97,6 +108,13 @@ const QueuePage = () => {
               <span className={isHost ? 'badge badge-green' : 'badge badge-blue'}>{isHost ? 'Host' : 'Guest'}</span>
               <span className="badge badge-slate">{users.length} connected</span>
               <span className="badge badge-slate">{isAudioDevice ? 'Audio device' : 'Room sync'}</span>
+              <button
+                type="button"
+                onClick={handleLeaveRoom}
+                className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-sm font-semibold text-rose-300 transition hover:bg-rose-500/20"
+              >
+                Leave room
+              </button>
             </div>
           </div>
         </div>

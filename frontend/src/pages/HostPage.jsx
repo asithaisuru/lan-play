@@ -88,7 +88,8 @@ const HostPage = () => {
 
   useEffect(() => {
     if (loading || !user) return;
-    setClientId(getOrCreateHostClientId());
+    const id = getOrCreateHostClientId();
+    setClientId(prev => prev || id);
   }, [loading, user]);
 
   useEffect(() => {
@@ -140,6 +141,13 @@ const HostPage = () => {
       setCopiedInvite(false);
     }
   }, [guestInviteLink]);
+
+  const handleEndSession = () => {
+    if (socket) {
+      socket.emit('leave-room');
+    }
+    navigate('/dashboard');
+  };
 
   if (loading) {
     return (
@@ -220,6 +228,13 @@ const HostPage = () => {
               >
                 <Copy size={16} />
                 {copiedInvite ? 'Copied!' : 'Copy guest invite'}
+              </button>
+              <button
+                type="button"
+                onClick={handleEndSession}
+                className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-sm font-semibold text-rose-300 transition hover:bg-rose-500/20"
+              >
+                End session
               </button>
               <Link
                 to={`/room/${roomCode}/player`}
