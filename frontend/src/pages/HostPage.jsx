@@ -52,6 +52,9 @@ const HostPage = () => {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const [clientId, setClientId] = useState(() => localStorage.getItem('waveio_host_clientId'));
+  const [sessionStarted, setSessionStarted] = useState(() => (
+    localStorage.getItem('waveio_session_' + roomCode) === 'started'
+  ));
   const [copiedInvite, setCopiedInvite] = useState(false);
   const copyTimerRef = useRef(null);
   const hasJoinedRef = useRef(false);
@@ -99,6 +102,7 @@ const HostPage = () => {
       !clientId ||
       !username ||
       !user ||
+      !sessionStarted ||
       hasJoinedRef.current
     ) return;
 
@@ -106,14 +110,14 @@ const HostPage = () => {
     joinedRoomRef.current = roomCode;
 
     socket.emit('join-room', { roomCode, username, clientId });
-  }, [clientId, isConnected, roomCode, socket, user, username]);
+  }, [clientId, isConnected, roomCode, sessionStarted, socket, user, username]);
 
   // Handle socket reconnection without re-joining
   useEffect(() => {
     if (!socket) return undefined;
 
     const handleReconnect = () => {
-      if (hasJoinedRef.current && joinedRoomRef.current) {
+      if (sessionStarted && hasJoinedRef.current && joinedRoomRef.current) {
         socket.emit('join-room', {
           roomCode: joinedRoomRef.current,
           username,
@@ -124,7 +128,7 @@ const HostPage = () => {
 
     socket.on('connect', handleReconnect);
     return () => socket.off('connect', handleReconnect);
-  }, [socket, username, clientId]);
+  }, [socket, username, clientId, sessionStarted]);
 
   useEffect(() => {
     const timer = copyTimerRef.current;
@@ -142,10 +146,16 @@ const HostPage = () => {
     }
   }, [guestInviteLink]);
 
+  const handleStartSession = () => {
+    localStorage.setItem('waveio_session_' + roomCode, 'started');
+    setSessionStarted(true);
+  };
+
   const handleEndSession = () => {
     if (socket) {
       socket.emit('leave-room');
     }
+    localStorage.removeItem('waveio_session_' + roomCode);
     navigate('/dashboard');
   };
 
@@ -178,6 +188,30 @@ const HostPage = () => {
       </Helmet>
       <Header />
       <main className="mx-auto max-w-7xl px-4 py-8 md:px-6">
+        {!sessionStarted ? (
+          <div className="flex min-h-[60vh] items-center justify-center">
+            <div className="max-w-md text-center">
+              <div className="brand-mark mb-6 text-4xl">♛</div>
+              <h2 className="text-3xl font-black text-white">
+                Ready to start?
+              </h2>
+              <p className="mt-3 text-[#888880]">
+                Click below to activate audio and open host controls. Music will play from this device.
+              </p>
+              <button
+                type="button"
+                onClick={handleStartSession}
+                className="mt-8 rounded-full bg-[#C9A84C] px-10 py-5 text-xl font-black text-[#0A0A0A] shadow-xl transition hover:bg-[#F0C040]"
+              >
+                Start Session
+              </button>
+              <p className="mt-4 text-xs text-[#888880]">
+                Room {roomCode} · {users.length} connected
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
         <div className="mb-6 rounded-lg border border-[#C9A84C55] bg-[#141414] p-5 shadow-lg shadow-black/20">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -186,7 +220,7 @@ const HostPage = () => {
                 Open the Player View on your speaker device
               </h2>
               <p className="mt-2 text-sm leading-6 text-[#D0D0C8]">
-                After opening Player View, click "Activate Audio" on that device to start playback.
+                Music plays from this device by default. Open Player View only if you want audio on a separate speaker or TV.
               </p>
             </div>
             <Link
@@ -195,7 +229,7 @@ const HostPage = () => {
               rel="noreferrer"
               className="btn btn-primary w-full justify-center lg:w-auto"
             >
-              Open Player View
+              Use external speaker
             </Link>
           </div>
         </div>
@@ -262,6 +296,8 @@ const HostPage = () => {
                 playAnnouncement={playAnnouncement}
                 playlist={playlist}
                 socket={socket}
+                audioActivated={sessionStarted}
+                onAudioActivated={handleStartSession}
               />
               <HostController
                 socket={socket}
@@ -277,6 +313,8 @@ const HostPage = () => {
               <PlaylistDisplay playlist={playlist} currentSong={currentSong} />
             </div>
           </div>
+        )}
+          </>
         )}
       </main>
       <Footer />

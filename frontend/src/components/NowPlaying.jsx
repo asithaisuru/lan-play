@@ -549,7 +549,11 @@ const NowPlaying = ({
     };
   }, [clearFadeIntervals, stopHostPlayer]);
 
-  const needsAudioActivation = Boolean(isAudioDevice && !effectiveAudioReady);
+  const needsAudioActivation = Boolean(
+    isAudioDevice
+    && !effectiveAudioReady
+    && !audioActivated
+  );
   const renderActivationButton = (label = 'Tap to activate audio') => (
     <button
       type="button"

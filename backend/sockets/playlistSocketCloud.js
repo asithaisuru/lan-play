@@ -257,6 +257,15 @@ export const initializePlaylistSocket = (io) => {
             pendingHostReassignments.delete(roomCode);
           }
           await setRoomOwner(roomCode, socket.id, clientId);
+
+          const currentAudioClientId = room.audio_client_id;
+          const audioUserConnected = currentAudioClientId
+            ? await getRoomUserByClientId(roomCode, currentAudioClientId)
+            : null;
+
+          if (!audioUserConnected || currentAudioClientId === clientId) {
+            await setRoomAudioDevice(roomCode, socket.id, clientId);
+          }
         }
 
         if (!room.audio_client_id && !room.audio_socket_id) {
