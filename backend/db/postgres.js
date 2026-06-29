@@ -77,7 +77,7 @@ export const getPlaylistState = async (roomCode) => {
   let currentSong = null;
   if (room.current_song_id) {
     const { rows } = await pool.query(
-      'SELECT * FROM songs WHERE id = $1',
+      'SELECT * FROM songs WHERE id = $1::uuid',
       [room.current_song_id]
     );
     currentSong = mapSong(rows[0] || null);
@@ -118,7 +118,7 @@ export const createRoom = async ({ roomCode, ownerSocketId, ownerClientId, usern
       playlist_name, created_by, is_playing, current_position, volume,
       announcement_enabled, default_index, created_at, updated_at, last_activity
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, false, 0, 100, false, 0, $8, $9, $10)`,
+    VALUES ($1::text, $2::text, $3::text, $4::text, $5::text, $6::text, $7::text, false, 0, 100, false, 0, $8::timestamptz, $9::timestamptz, $10::timestamptz)`,
     [
       roomCode,
       ownerSocketId,
@@ -145,8 +145,8 @@ export const touchRoom = async (roomCode) => {
 export const addOrUpdateRoomUser = async ({ roomCode, socketId, clientId, username, isHost }) => {
   const { rows: existing } = await pool.query(
     `SELECT id FROM room_users
-     WHERE room_code = $1
-       AND ((client_id IS NOT NULL AND client_id = $2) OR socket_id = $3)
+     WHERE room_code = $1::text
+       AND ((client_id IS NOT NULL AND client_id = $2::text) OR socket_id = $3::text)
      ORDER BY (client_id IS NULL) ASC, joined_at ASC
      LIMIT 1`,
     [roomCode, clientId || null, socketId]
@@ -154,7 +154,7 @@ export const addOrUpdateRoomUser = async ({ roomCode, socketId, clientId, userna
 
   if (existing.length > 0) {
     await pool.query(
-      'UPDATE room_users SET socket_id = $1, client_id = $2, username = $3, is_host = $4 WHERE id = $5',
+      'UPDATE room_users SET socket_id = $1::text, client_id = $2::text, username = $3::text, is_host = $4::boolean WHERE id = $5::uuid',
       [socketId, clientId || null, username, Boolean(isHost), existing[0].id]
     );
     return;
@@ -162,7 +162,7 @@ export const addOrUpdateRoomUser = async ({ roomCode, socketId, clientId, userna
 
   await pool.query(
     `INSERT INTO room_users (id, room_code, socket_id, client_id, username, joined_at, is_host)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+     VALUES ($1::uuid, $2::text, $3::text, $4::text, $5::text, $6::timestamptz, $7::boolean)`,
     [randomUUID(), roomCode, socketId, clientId || null, username, now(), Boolean(isHost)]
   );
 };
@@ -190,19 +190,19 @@ export const getOldestRoomUser = async (roomCode) => {
 export const setRoomOwner = async (roomCode, socketId, clientId = null) => {
   await pool.query(
     `UPDATE rooms
-     SET owner_socket_id = $1,
-         owner_client_id = COALESCE($2, owner_client_id)
-     WHERE room_code = $3`,
+     SET owner_socket_id = $1::text,
+         owner_client_id = COALESCE($2::text, owner_client_id)
+     WHERE room_code = $3::text`,
     [socketId, clientId, roomCode]
   );
 
   await pool.query(
     `UPDATE room_users
      SET is_host = CASE
-       WHEN ($1 IS NOT NULL AND client_id = $1) OR socket_id = $2 THEN true
+       WHEN ($1::text IS NOT NULL AND client_id = $1::text) OR socket_id = $2::text THEN true
        ELSE false
      END
-     WHERE room_code = $3`,
+     WHERE room_code = $3::text`,
     [clientId, socketId, roomCode]
   );
 
@@ -212,11 +212,11 @@ export const setRoomOwner = async (roomCode, socketId, clientId = null) => {
 export const setRoomAudioDevice = async (roomCode, socketId, clientId = null) => {
   await pool.query(
     `UPDATE rooms
-     SET audio_socket_id = $1,
-         audio_client_id = $2,
+     SET audio_socket_id = $1::text,
+         audio_client_id = $2::text,
          updated_at = $3,
          last_activity = $4
-     WHERE room_code = $5`,
+     WHERE room_code = $5::text`,
     [socketId, clientId || null, now(), now(), roomCode]
   );
 };
@@ -225,7 +225,7 @@ export const getRoomUserByClientId = async (roomCode, clientId) => {
   if (!clientId) return null;
   const { rows } = await pool.query(
     `SELECT * FROM room_users
-     WHERE room_code = $1 AND client_id = $2
+     WHERE room_code = $1::text AND client_id = $2::text
      ORDER BY joined_at ASC
      LIMIT 1`,
     [roomCode, clientId]
@@ -281,10 +281,10 @@ export const clearDefaultSongs = async (roomCode) => {
 
   await pool.query(
     `UPDATE rooms
-     SET current_song_id = NULL,
-         current_source = NULL,
+     SET current_song_id = NULL::text,
+         current_source = NULL::text,
          is_playing = false
-     WHERE room_code = $1 AND current_source = 'default'`,
+     WHERE room_code = $1::text AND current_source = 'default'`,
     [roomCode]
   );
 
@@ -313,14 +313,14 @@ export const reorderDefaultSongs = async (roomCode, songIds) => {
 export const setPlayback = async ({ roomCode, songId, source, isPlaying, currentTime = 0, defaultIndex }) => {
   await pool.query(
     `UPDATE rooms
-     SET current_song_id = $1,
-         current_source = $2,
-         is_playing = $3,
+     SET current_song_id = $1::text,
+         current_source = $2::text,
+         is_playing = $3::boolean,
          current_position = $4,
-         default_index = COALESCE($5, default_index),
+         default_index = COALESCE($5::integer, default_index),
          updated_at = $6,
          last_activity = $7
-     WHERE room_code = $8`,
+     WHERE room_code = $8::text`,
     [songId || null, source || null, Boolean(isPlaying), currentTime, defaultIndex ?? null, now(), now(), roomCode]
   );
 };

@@ -17,6 +17,7 @@ const DashboardPage = () => {
   const [roomName, setRoomName] = useState('');
   const [loadingRooms, setLoadingRooms] = useState(true);
   const [error, setError] = useState('');
+  const [copiedRoomCode, setCopiedRoomCode] = useState('');
 
   const tier = user?.tier || 'free';
 
@@ -63,10 +64,12 @@ const DashboardPage = () => {
     }
   };
 
-  const copyLink = async (room) => {
+  const copyGuestLink = async (room) => {
     const code = getRoomCode(room);
     if (!code) return;
     await navigator.clipboard.writeText(`https://waveio.app/room/${code}`);
+    setCopiedRoomCode(code);
+    setTimeout(() => setCopiedRoomCode((currentCode) => (currentCode === code ? '' : currentCode)), 2000);
   };
 
   return (
@@ -110,15 +113,28 @@ const DashboardPage = () => {
                   const code = getRoomCode(room);
                   return (
                     <div key={code || getRoomName(room)} className="rounded-lg border border-[#C9A84C22] bg-[#0A0A0A] p-4">
-                      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div className="flex flex-col gap-4">
                         <div>
                           <p className="font-semibold">{getRoomName(room)}</p>
                           <p className="mt-1 font-mono text-sm text-[#888880]">{code}</p>
                           <p className="mt-1 break-all text-xs text-[#888880]">waveio.app/room/{code}</p>
+                          <Link to={`/room/${code}`} className="mt-2 inline-flex text-xs font-semibold text-[#C9A84C] hover:text-[#F0C040]">
+                            Open as Guest
+                          </Link>
                         </div>
-                        <div className="flex gap-2">
-                          <button type="button" onClick={() => copyLink(room)} className="btn btn-secondary px-3 py-2" title="Copy link">
+                        <div className="flex flex-wrap gap-2">
+                          <Link
+                            to={`/room/${code}/host`}
+                            className="btn border border-[#C9A84C] bg-transparent px-3 py-2 text-[#C9A84C] hover:bg-[#C9A84C11] hover:text-[#F0C040]"
+                          >
+                            Host Controls
+                          </Link>
+                          <Link to={`/room/${code}/player`} className="btn btn-secondary px-3 py-2">
+                            Player View
+                          </Link>
+                          <button type="button" onClick={() => copyGuestLink(room)} className="btn btn-secondary px-3 py-2" title="Copy guest link">
                             <Copy size={16} />
+                            {copiedRoomCode === code ? 'Copied!' : 'Copy Guest Link'}
                           </button>
                           <button type="button" onClick={() => endRoom(room)} className="btn btn-danger px-3 py-2" title="End room">
                             <XCircle size={16} />
