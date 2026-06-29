@@ -199,7 +199,8 @@ const NowPlaying = ({
 
     try {
       const targetTime = Number(syncedCurrentTime || 0);
-      if (targetTime > 0 && typeof activePlayer.seekTo === 'function') {
+      const currentPos = activePlayer.getCurrentTime?.() || 0;
+      if (targetTime > 0 && Math.abs(currentPos - targetTime) > 5 && typeof activePlayer.seekTo === 'function') {
         activePlayer.seekTo(targetTime, true);
         setElapsedTime(targetTime);
       }
@@ -528,7 +529,7 @@ const NowPlaying = ({
       setKnownDuration(duration);
 
       tick += 1;
-      if (socket && tick % 2 === 0) {
+      if (socket && tick % 4 === 0) {
         socket.emit('playback-progress', {
           currentTime: current,
           duration
@@ -561,23 +562,18 @@ const NowPlaying = ({
 
   // Handle play/pause controls (host only)
   useEffect(() => {
-    if (isPlayerReady && isReadyPlayer(player) && canUseAudioPlayer) {
-      try {
-        if (isPlaying) {
-          const targetTime = Number(syncedCurrentTime || 0);
-          const currentPlayerTime = player.getCurrentTime?.() || 0;
-          if (targetTime > 0 && Math.abs(currentPlayerTime - targetTime) > 2 && typeof player.seekTo === 'function') {
-            player.seekTo(targetTime, true);
-          }
-          player.playVideo();
-        } else {
-          player.pauseVideo();
-        }
-      } catch (error) {
-        console.error('Player control error:', error);
+    if (!isPlayerReady || !isReadyPlayer(player) || !canUseAudioPlayer) return;
+
+    try {
+      if (isPlaying) {
+        player.playVideo();
+      } else {
+        player.pauseVideo();
       }
+    } catch (error) {
+      console.error('Player control error:', error);
     }
-  }, [isPlaying, isPlayerReady, player, canUseAudioPlayer, isReadyPlayer, syncedCurrentTime]);
+  }, [isPlaying, isPlayerReady, player, canUseAudioPlayer, isReadyPlayer]);
 
   // Cleanup on unmount
   useEffect(() => {
